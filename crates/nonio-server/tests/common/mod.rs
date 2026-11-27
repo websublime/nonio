@@ -120,3 +120,21 @@ pub fn git(dir: &Path, args: &[&str]) -> String {
     assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
     String::from_utf8_lossy(&out.stdout).trim().to_string()
 }
+
+/// The map-only first try saying it needs the code.
+pub fn needs_code(missing: &str) -> Reply {
+    reply(serde_json::json!({ "route": "code", "missing": missing }))
+}
+
+/// The fix the model would propose for "make the welcome email go out right away".
+pub fn listener_fix() -> Value {
+    serde_json::json!({
+        "summary": "Run the automation rules as soon as a patient converts, by listening for the announcement.",
+        "edits": [],
+        "creates": [{
+            "file": "src/automations/listeners.ts",
+            "content": "import { bus } from '../events/bus';\nimport { evaluateRules } from './evaluate';\n\nbus.on('patient.converted', ({ patientId }) => evaluateRules({ patientId }));\n",
+        }],
+        "connects": { "from": "s4", "to": "u1", "label": "now listens", "evidenceFile": "src/automations/listeners.ts", "evidenceText": "bus.on('patient.converted'" },
+    })
+}

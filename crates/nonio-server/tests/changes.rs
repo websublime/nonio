@@ -9,9 +9,10 @@ use std::path::Path;
 
 use common::*;
 use nonio_server::changes::{changes_since, recent_changes, FileChange, What};
+use nonio_server::explainer::{cited_excerpts, Selection};
 use nonio_server::hints::head_start;
 use nonio_server::maker::{make_map, MakeOptions};
-use nonio_server::prompts::maker_prompt;
+use nonio_server::prompts::{explainer_prompt, maker_prompt};
 use serde_json::{json, Value};
 
 /// The care app committed, then changed: a listener added, the service edited, the nightly job deleted.
@@ -167,4 +168,20 @@ fn tells_the_model_how_to_draw_a_change() {
     let p = maker_prompt("What did you just change?", "(head start)");
     assert!(p.contains("## When the question is about a change"));
     assert!(p.contains("`\"removed\": true`"));
+}
+
+// Answering on a map of a change.
+
+#[tokio::test]
+async fn reads_removed_code_as_it_was_and_tells_the_model_what_the_checker_found() {
+    let (dir, _) = changed_app();
+    let (o, _) = make(dir.path(), vec![reply(change_map("HEAD"))]);
+    let r = make_map(o).await.unwrap();
+    let excerpts = cited_excerpts(dir.path(), &r.map, &Selection { nodes: vec!["j1".into()], ..Default::default() });
+    assert!(excerpts.contains("src/jobs/nightly.ts:1-9 (removed since; as it was, cited by j1)"), "{excerpts}");
+    assert!(excerpts.contains("export const schedule = '0 2 * * *';"), "{excerpts}");
+    let prompt = explainer_prompt(&r.map, &r.report, &[], "what changed?", "", false, &[]);
+    assert!(prompt.contains("## This map shows a change"));
+    assert!(prompt.contains("s3 (changed)"));
+    assert!(prompt.contains("+   console.log('converted', patientId);"));
 }

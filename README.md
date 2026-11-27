@@ -13,7 +13,7 @@ viewer yet.
 | `nonio-facts` | The facts contract (`FileFacts`, `Extractor`), and the pure functions over facts the checker needs: settling calls, `fetch` sites, route matching, globs |
 | `nonio-core` | The map format (`parse_map`), the checker (`check`), map edits, the working-tree and git readers, screens and code views |
 | `nonio-scan` | The TS/JS extraction backend on oxc (`OxcExtractor`); see [its README](crates/nonio-scan/README.md) for where it differs from illuminate |
-| `nonio-server` | Host profiles (D07), the bridge that hands work to the host's model in tool results (D06), the request text and its parts, the map store in `.nonio/maps`, the output schemas and prompts (the same text as illuminate's, see [`tools/record-prompts`](tools/record-prompts/README.md)), the head start and the maker |
+| `nonio-server` | Host profiles (D07), the bridge that hands work to the host's model in tool results (D06), the request text and its parts, the map store in `.nonio/maps`, the output schemas and prompts (the same text as illuminate's, see [`tools/record-prompts`](tools/record-prompts/README.md)), the head start, the maker, the explainer (answers on a map), fixes (proposed, applied on approval, undone) and the chat reply |
 
 The checker knows facts only through the `Extractor` trait. `nonio-scan` implements it for TS/JS and Vue on oxc, and
 for Java, Kotlin and Python through the `code2graph` adapter and the field resolver (D14, D15).

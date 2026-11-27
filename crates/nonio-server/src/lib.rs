@@ -6,10 +6,14 @@
 
 pub mod bridge;
 pub mod changes;
+pub mod explainer;
+pub mod fixes;
 pub mod hints;
 pub mod host;
+pub mod ids;
 pub mod maker;
 pub mod prompts;
+pub mod reply;
 pub mod request;
 pub mod scan;
 pub mod schemas;
