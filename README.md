@@ -3,8 +3,8 @@
 Interactive maps of how code works, where every box and every arrow is checked against the code by a deterministic
 program before it is shown. Written in Rust, inspired by [illuminate](https://github.com/johnz4021/illuminate).
 
-Status: phase 2. The map format, the checker and the TS/JS extraction backend (oxc) are ported; there is no server or
-viewer yet.
+Status: phase 3. The map format, the checker, the TS/JS extraction backend (oxc), the page server and the MCP channel
+are ported; the viewer and the `nonio mcp` binary come next.
 
 ## Workspace
 
@@ -13,7 +13,7 @@ viewer yet.
 | `nonio-facts` | The facts contract (`FileFacts`, `Extractor`), and the pure functions over facts the checker needs: settling calls, `fetch` sites, route matching, globs |
 | `nonio-core` | The map format (`parse_map`), the checker (`check`), map edits, the working-tree and git readers, screens and code views |
 | `nonio-scan` | The TS/JS extraction backend on oxc (`OxcExtractor`); see [its README](crates/nonio-scan/README.md) for where it differs from illuminate |
-| `nonio-server` | Host profiles (D07), the bridge that hands work to the host's model in tool results (D06), the request text and its parts, the map store in `.nonio/maps`, the output schemas and prompts (the same text as illuminate's, see [`tools/record-prompts`](tools/record-prompts/README.md)), the head start, the maker, the explainer (answers on a map), fixes (proposed, applied on approval, undone), the chat reply, and the page server on 127.0.0.1 (HTTP API and WebSocket, token, Host and Origin checks, stops itself when nobody is looking), and screens: what a repo can show, and captures from the installed Chrome over the DevTools protocol (`NONIO_CHROME` names one) |
+| `nonio-server` | Host profiles (D07), the bridge that hands work to the host's model in tool results (D06), the request text and its parts, the map store in `.nonio/maps`, the output schemas and prompts (the same text as illuminate's, see [`tools/record-prompts`](tools/record-prompts/README.md)), the head start, the maker, the explainer (answers on a map), fixes (proposed, applied on approval, undone), the chat reply, and the page server on 127.0.0.1 (HTTP API and WebSocket, token, Host and Origin checks, stops itself when nobody is looking), and screens: what a repo can show, and captures from the installed Chrome over the DevTools protocol (`NONIO_CHROME` names one), and the MCP channel (rmcp) with the `nonio_*` tools, shaped per host: Claude Code listens on the map, Codex and Cursor ask from the chat |
 
 The checker knows facts only through the `Extractor` trait. `nonio-scan` implements it for TS/JS and Vue on oxc, and
 for Java, Kotlin and Python through the `code2graph` adapter and the field resolver (D14, D15).

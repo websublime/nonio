@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use nonio_core::parse_map;
 use nonio_server::bridge::{AgentError, AgentRequest, Bridge, BridgeOptions, HOST_SESSION};
-use nonio_server::host::{HostProfile, CLAUDE_CODE};
+use nonio_server::host::{HostProfile, CLAUDE_CODE, CODEX};
 use serde_json::{json, Value};
 use tokio_util::sync::CancellationToken;
 
@@ -193,4 +193,22 @@ async fn names_the_host_when_the_model_gives_up_and_says_so_for_no_such_request(
     assert!(!bridge.fail("r9", "no"));
     assert!(bridge.fail("r1", "no code"));
     assert_eq!(reply.await, Err(AgentError::Failed("your agent couldn't finish this: no code".into())));
+}
+
+#[tokio::test(start_paused = true)]
+async fn tells_the_person_to_carry_on_in_the_chat_when_work_started_on_the_page_has_nobody_to_pick_it_up() {
+    let (said, on_progress) = said();
+    let bridge = Bridge::new(BridgeOptions {
+        host: Arc::new(|| -> &'static HostProfile { &CODEX }),
+        nudge: Some(Duration::from_millis(10)),
+        ..BridgeOptions::new(|_| {})
+    });
+    let mut req = map_request("x");
+    req.on_progress = Some(on_progress);
+    let reply = bridge.ask(req);
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    assert_eq!(*said.lock().unwrap(), [CODEX.waiting, CODEX.not_picked_up]);
+    assert!(said.lock().unwrap()[1].contains("carry on with nonio"));
+    bridge.fail("r1", "done");
+    assert!(reply.await.is_err());
 }
