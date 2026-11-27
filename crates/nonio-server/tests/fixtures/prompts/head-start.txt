@@ -1,0 +1,29 @@
+Ways in (entry points):
+  - route POST /api/patients/{}/convert → src/server/routes.ts#convertPatient
+
+Routes and their handlers:
+  - POST /api/patients/{}/convert → src/server/routes.ts#convertPatient
+
+Requests from the code that match a route:
+  - src/ui/PatientHeader.tsx#PatientHeader.onConvert sends POST /api/patients/{}/convert → src/server/routes.ts#convertPatient
+
+Tables and what writes them:
+  - patients ← src/patients/service.ts#markConverted
+
+Top-level folders:
+  - src/ (12 files)
+  - (root)/ (2 files)
+
+Functions by file (use these exact names for `symbol`):
+  - src/automations/evaluate.ts: evaluateRules
+  - src/db.ts: db.update, db.where
+  - src/email/send.ts: sendEmail
+  - src/events/bus.ts: bus.on, bus.emit
+  - src/jobs/nightly.ts: runNightly
+  - src/jobs/queue.ts: queueEmail
+  - src/patients/service.ts: markConverted
+  - src/server/routes.ts: convertPatient
+  - src/ui/PatientHeader.tsx: PatientHeader, PatientHeader.onConvert
+  - src/ui/PatientNotes.tsx: PatientNotes
+  - src/ui/PatientPage.tsx: PatientPage
+  - src/ui/PatientSidebar.tsx: PatientSidebar

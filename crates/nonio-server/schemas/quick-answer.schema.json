@@ -1,0 +1,82 @@
+{
+  "type": "object",
+  "properties": {
+    "refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "moves": {
+      "type": "object",
+      "properties": {
+        "focus": {
+          "type": "string"
+        },
+        "highlight": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "notes": {
+      "maxItems": 8,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "minLength": 1
+          },
+          "line": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "required": [
+          "file",
+          "line",
+          "text",
+          "note"
+        ]
+      }
+    },
+    "route": {
+      "type": "string",
+      "enum": [
+        "answer",
+        "code",
+        "elsewhere"
+      ]
+    },
+    "missing": {
+      "type": "string"
+    },
+    "newQuestion": {
+      "type": "string"
+    },
+    "existingMap": {
+      "type": "string"
+    },
+    "concept": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "route"
+  ]
+}

@@ -30,6 +30,17 @@ Carried over from illuminate (read at commit 7a88df6, 2026-11-26):
   packages/server/src/channel.ts (host messages and request wording).
 - crates/nonio-server/tests/{bridge,request}.rs: ported from
   packages/server/test/channel.test.ts.
+- crates/nonio-server/src/{prompts,hints,changes,maker,scan}.rs: ported from
+  packages/server/src/{prompts,hints,changes,maker}.ts, scanRepoFacts in
+  packages/facts/src/scan.ts and diffSymbols in packages/facts/src/facts/diff.ts
+  (the prompt text is illuminate's).
+- crates/nonio-server/schemas/*.schema.json: illuminate's output schemas,
+  written by packages/server/src/schemas.ts (see tools/record-prompts).
+- crates/nonio-server/tests/fixtures/prompts: illuminate's prompts and head
+  start on fixed inputs (see tools/record-prompts).
+- crates/nonio-server/tests/{maker,hints,changes}.rs: ported from
+  packages/server/test/{workflows,proposals,journeys,hints,changes}.test.ts.
+- tools/record-prompts/*.ts: call illuminate's prompt and schema modules.
 
 The Vue template lowering in crates/nonio-scan/src/vue.rs is ported from
 vue_oxlint_jsx 0.15.0 (vue-oxlint-toolkit,

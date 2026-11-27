@@ -5,8 +5,14 @@
 //! Parts are ported from `@illuminate/server` (MIT, Copyright (c) 2026 johnz4021); see NOTICE.
 
 pub mod bridge;
+pub mod changes;
+pub mod hints;
 pub mod host;
+pub mod maker;
+pub mod prompts;
 pub mod request;
+pub mod scan;
+pub mod schemas;
 pub mod store;
 pub mod tools;
 
