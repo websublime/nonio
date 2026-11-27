@@ -146,6 +146,9 @@ fn namespace_len(id: &SymbolId) -> usize {
     id.namespaces_iter().count()
 }
 
+/// A Java or Kotlin import of a whole package: `import com.acme.model.*`.
+static WILDCARD: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?m)^\s*import\s+([A-Za-z_][\w]*(?:\.[A-Za-z_][\w]*)*)\.\*\s*;?\s*$").unwrap());
 /// A Kotlin constructor property just before its type: `private val mailer: ` in `class S(private val mailer: M)`.
 static CTOR_PROPERTY: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\b(?:val|var)\s+([A-Za-z_]\w*)\s*:\s*$").unwrap());
@@ -257,7 +260,22 @@ impl<'g> Index<'g> {
         }
         let package = f.symbols.iter().find(|s| s.id.namespaces_iter().next().is_some())?;
         let ns: Vec<String> = package.id.namespaces_iter().map(str::to_string).collect();
-        match self.types_by_package.get(&(ns, name.to_string()))?.as_slice() {
+        match self.types_by_package.get(&(ns, name.to_string())).map(Vec::as_slice) {
+            Some([one]) => return Some(one),
+            Some([]) | None => {}
+            Some(_) => return None,
+        }
+        // Last, the packages imported whole (`import a.b.*`): only when exactly one of them has the name, as
+        // Java and Kotlin reject an ambiguous one.
+        let text = self.texts.get(f.file.as_str()).copied().unwrap_or("");
+        let mut found: Vec<&SymbolId> = Vec::new();
+        for m in WILDCARD.captures_iter(text) {
+            let pkg: Vec<String> = m[1].split('.').map(str::to_string).collect();
+            if let Some(ids) = self.types_by_package.get(&(pkg, name.to_string())) {
+                found.extend(ids.iter().copied());
+            }
+        }
+        match found.as_slice() {
             [one] => Some(one),
             _ => None,
         }

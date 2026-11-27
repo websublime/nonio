@@ -311,3 +311,20 @@ fn a_class_with_a_constructor_is_still_imported() {
     let s = &facts["a/S.java"];
     assert_eq!(s.imports.iter().map(|i| i.to.as_str()).collect::<Vec<_>>(), ["b/Visit.java"]);
 }
+
+#[test]
+fn a_package_imported_whole_names_its_types() {
+    let s = (
+        "a/S.java",
+        "package a;\nimport b.*;\nimport c.*;\npublic class S {\n    public void run(Visit visit, Only only) {\n        visit.describe();\n        only.describe();\n    }\n}\n",
+    );
+    let facts = graph_facts(&texts(&[
+        s,
+        ("b/Visit.java", "package b;\npublic class Visit {\n    public void describe() {}\n}\n"),
+        ("c/Visit.java", "package c;\npublic class Visit {\n    public void describe() {}\n}\n"),
+        ("c/Only.java", "package c;\npublic class Only {\n    public void describe() {}\n}\n"),
+    ]));
+    // `Visit` is in both packages (Java rejects it); `Only` is in one.
+    let calls: Vec<&str> = facts["a/S.java"].calls.iter().map(|c| c.to.as_str()).collect();
+    assert_eq!(calls, ["c/Only.java#Only.describe"]);
+}
