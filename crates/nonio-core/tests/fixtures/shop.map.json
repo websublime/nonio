@@ -2,71 +2,291 @@
   "version": 1,
   "question": "Which screens call which API handlers?",
   "areas": [
-    { "id": "ui", "label": "Screens" },
-    { "id": "api", "label": "API" }
+    {
+      "id": "ui",
+      "label": "Screens"
+    },
+    {
+      "id": "api",
+      "label": "API"
+    }
   ],
   "nodes": [
     {
-      "id": "list", "area": "ui", "kind": "entry", "name": "Order list refreshes",
+      "id": "list",
+      "area": "ui",
+      "kind": "entry",
+      "name": "Order list refreshes",
       "symbol": "web/src/components/OrderList.vue#load",
-      "evidence": [{ "file": "web/src/components/OrderList.vue", "line": 7, "text": "fetch('/api/orders')" }]
+      "evidence": [
+        {
+          "file": "web/src/components/OrderList.vue",
+          "line": 7,
+          "text": "fetch('/api/orders')"
+        }
+      ]
     },
     {
-      "id": "detail", "area": "ui", "kind": "entry", "name": "Order detail opens",
+      "id": "detail",
+      "area": "ui",
+      "kind": "entry",
+      "name": "Order detail opens",
       "symbol": "web/src/components/OrderDetail.vue#open",
-      "evidence": [{ "file": "web/src/components/OrderDetail.vue", "line": 9, "text": "await getOrder(props.id)" }]
+      "evidence": [
+        {
+          "file": "web/src/components/OrderDetail.vue",
+          "line": 9,
+          "text": "await getOrder(props.id)"
+        }
+      ]
     },
     {
-      "id": "pay", "area": "ui", "kind": "entry", "name": "Pay button",
+      "id": "pay",
+      "area": "ui",
+      "kind": "entry",
+      "name": "Pay button",
       "symbol": "web/src/components/PayButton.tsx#PayButton",
-      "evidence": [{ "file": "web/src/components/PayButton.tsx", "line": 4, "text": "axios.post(`/api/invoices/${invoice}/pay`)" }]
+      "evidence": [
+        {
+          "file": "web/src/components/PayButton.tsx",
+          "line": 4,
+          "text": "axios.post(`/api/invoices/${invoice}/pay`)"
+        }
+      ]
     },
     {
-      "id": "cart", "area": "ui", "kind": "entry", "name": "Cart page",
-      "evidence": [{ "file": "nuxt/pages/cart.vue", "line": 2, "text": "useFetch('/api/cart')" }]
+      "id": "cart",
+      "area": "ui",
+      "kind": "entry",
+      "name": "Cart page",
+      "evidence": [
+        {
+          "file": "nuxt/pages/cart.vue",
+          "line": 2,
+          "text": "useFetch('/api/cart')"
+        }
+      ]
     },
     {
-      "id": "stock", "area": "ui", "kind": "entry", "name": "Stock badge",
+      "id": "stock",
+      "area": "ui",
+      "kind": "entry",
+      "name": "Stock badge",
       "symbol": "next/app/stock/StockBadge.tsx#StockBadge",
-      "evidence": [{ "file": "next/app/stock/StockBadge.tsx", "line": 4, "text": "fetch('/api/stock')" }]
+      "evidence": [
+        {
+          "file": "next/app/stock/StockBadge.tsx",
+          "line": 4,
+          "text": "fetch('/api/stock')"
+        }
+      ]
     },
     {
-      "id": "olist", "area": "api", "name": "List orders",
+      "id": "olist",
+      "area": "api",
+      "name": "List orders",
       "symbol": "backend/src/main/java/com/shop/orders/OrderController.java#OrderController.list",
-      "evidence": [{ "file": "backend/src/main/java/com/shop/orders/OrderController.java", "line": 21, "text": "public List<Order> list()" }]
+      "evidence": [
+        {
+          "file": "backend/src/main/java/com/shop/orders/OrderController.java",
+          "line": 21,
+          "text": "public List<Order> list()"
+        }
+      ]
     },
     {
-      "id": "oget", "area": "api", "name": "Get one order",
+      "id": "oget",
+      "area": "api",
+      "name": "Get one order",
       "symbol": "backend/src/main/java/com/shop/orders/OrderController.java#OrderController.get",
-      "evidence": [{ "file": "backend/src/main/java/com/shop/orders/OrderController.java", "line": 26, "text": "public Order get(@PathVariable long id)" }]
+      "evidence": [
+        {
+          "file": "backend/src/main/java/com/shop/orders/OrderController.java",
+          "line": 26,
+          "text": "public Order get(@PathVariable long id)"
+        }
+      ]
     },
     {
-      "id": "ipay", "area": "api", "name": "Pay an invoice",
+      "id": "ipay",
+      "area": "api",
+      "name": "Pay an invoice",
       "symbol": "backend/src/main/kotlin/com/shop/billing/InvoiceController.kt#InvoiceController.pay",
-      "evidence": [{ "file": "backend/src/main/kotlin/com/shop/billing/InvoiceController.kt", "line": 12, "text": "fun pay(@PathVariable id: Long)" }]
+      "evidence": [
+        {
+          "file": "backend/src/main/kotlin/com/shop/billing/InvoiceController.kt",
+          "line": 12,
+          "text": "fun pay(@PathVariable id: Long)"
+        }
+      ]
     },
     {
-      "id": "capi", "area": "api", "name": "Cart handler",
+      "id": "capi",
+      "area": "api",
+      "name": "Cart handler",
       "symbol": "nuxt/server/api/cart.get.ts#default",
-      "evidence": [{ "file": "nuxt/server/api/cart.get.ts", "line": 1, "text": "export default defineEventHandler" }]
+      "evidence": [
+        {
+          "file": "nuxt/server/api/cart.get.ts",
+          "line": 1,
+          "text": "export default defineEventHandler"
+        }
+      ]
     },
     {
-      "id": "sapi", "area": "api", "name": "Stock handler",
+      "id": "sapi",
+      "area": "api",
+      "name": "Stock handler",
       "symbol": "next/app/api/stock/route.ts#GET",
-      "evidence": [{ "file": "next/app/api/stock/route.ts", "line": 1, "text": "export async function GET()" }]
+      "evidence": [
+        {
+          "file": "next/app/api/stock/route.ts",
+          "line": 1,
+          "text": "export async function GET()"
+        }
+      ]
+    },
+    {
+      "id": "h1",
+      "area": "ui",
+      "name": "Chain start",
+      "symbol": "web/src/api/chain.ts#h1",
+      "evidence": [
+        {
+          "file": "web/src/api/chain.ts",
+          "line": 1,
+          "text": "export function h1()"
+        }
+      ]
+    },
+    {
+      "id": "far",
+      "area": "ui",
+      "kind": "entry",
+      "name": "Far button",
+      "symbol": "web/src/components/Far.vue#far",
+      "evidence": [
+        {
+          "file": "web/src/components/Far.vue",
+          "line": 5,
+          "text": "return h1()"
+        }
+      ]
     }
   ],
   "edges": [
-    { "id": "vue-java", "from": "list", "to": "olist", "kind": "request", "label": "loads",
-      "evidence": [{ "file": "web/src/components/OrderList.vue", "line": 7, "text": "fetch('/api/orders')" }] },
-    { "id": "tsx-kotlin", "from": "pay", "to": "ipay", "kind": "request", "label": "pays",
-      "evidence": [{ "file": "web/src/components/PayButton.tsx", "line": 4, "text": "axios.post(`/api/invoices/${invoice}/pay`)" }] },
-    { "id": "nuxt", "from": "cart", "to": "capi", "kind": "request", "label": "loads",
-      "evidence": [{ "file": "nuxt/pages/cart.vue", "line": 2, "text": "useFetch('/api/cart')" }] },
-    { "id": "next", "from": "stock", "to": "sapi", "kind": "request", "label": "checks",
-      "evidence": [{ "file": "next/app/stock/StockBadge.tsx", "line": 4, "text": "fetch('/api/stock')" }] },
-    { "id": "wrong-route", "from": "list", "to": "oget", "kind": "request", "label": "loads",
-      "evidence": [{ "file": "web/src/components/OrderList.vue", "line": 7, "text": "fetch('/api/orders')" }] }
+    {
+      "id": "vue-java",
+      "from": "list",
+      "to": "olist",
+      "kind": "request",
+      "label": "loads",
+      "evidence": [
+        {
+          "file": "web/src/components/OrderList.vue",
+          "line": 7,
+          "text": "fetch('/api/orders')"
+        }
+      ]
+    },
+    {
+      "id": "tsx-kotlin",
+      "from": "pay",
+      "to": "ipay",
+      "kind": "request",
+      "label": "pays",
+      "evidence": [
+        {
+          "file": "web/src/components/PayButton.tsx",
+          "line": 4,
+          "text": "axios.post(`/api/invoices/${invoice}/pay`)"
+        }
+      ]
+    },
+    {
+      "id": "nuxt",
+      "from": "cart",
+      "to": "capi",
+      "kind": "request",
+      "label": "loads",
+      "evidence": [
+        {
+          "file": "nuxt/pages/cart.vue",
+          "line": 2,
+          "text": "useFetch('/api/cart')"
+        }
+      ]
+    },
+    {
+      "id": "next",
+      "from": "stock",
+      "to": "sapi",
+      "kind": "request",
+      "label": "checks",
+      "evidence": [
+        {
+          "file": "next/app/stock/StockBadge.tsx",
+          "line": 4,
+          "text": "fetch('/api/stock')"
+        }
+      ]
+    },
+    {
+      "id": "wrong-route",
+      "from": "list",
+      "to": "oget",
+      "kind": "request",
+      "label": "loads",
+      "evidence": [
+        {
+          "file": "web/src/components/OrderList.vue",
+          "line": 7,
+          "text": "fetch('/api/orders')"
+        }
+      ]
+    },
+    {
+      "id": "through-client",
+      "from": "detail",
+      "to": "oget",
+      "kind": "request",
+      "label": "opens",
+      "evidence": [
+        {
+          "file": "web/src/components/OrderDetail.vue",
+          "line": 9,
+          "text": "await getOrder(props.id)"
+        }
+      ]
+    },
+    {
+      "id": "four-hops",
+      "from": "h1",
+      "to": "olist",
+      "kind": "request",
+      "label": "loads",
+      "evidence": [
+        {
+          "file": "web/src/api/chain.ts",
+          "line": 2,
+          "text": "return h2()"
+        }
+      ]
+    },
+    {
+      "id": "five-hops",
+      "from": "far",
+      "to": "olist",
+      "kind": "request",
+      "label": "loads",
+      "evidence": [
+        {
+          "file": "web/src/components/Far.vue",
+          "line": 5,
+          "text": "return h1()"
+        }
+      ]
+    }
   ],
   "absences": [],
   "tour": []

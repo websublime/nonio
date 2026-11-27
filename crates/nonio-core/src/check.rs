@@ -769,30 +769,85 @@ fn check_edge_now(e: &MapEdge, by_id: &HashMap<&str, &MapNode>, side: &Side<'_>,
         return result(evidence, reasons, Proof::Fact);
     }
 
-    // request: a fetch in the `from` box (direct, or through a wrapper it imports) that matches a route in the `to` box.
-    let neighbours: Vec<String> = std::iter::once(from_file.clone())
-        .chain(from_facts.imports.iter().filter(|i| !i.to.starts_with("vendor:")).map(|i| i.to.clone()))
-        .collect();
-    let loaded: Vec<(String, Rc<str>, Rc<FileFacts>)> =
-        neighbours.iter().filter_map(|p| Some((p.clone(), side.repo.text(p)?, side.facts.get(p)?))).collect();
-    let sources: Vec<SourceFile<'_>> =
-        loaded.iter().map(|(path, source, f)| SourceFile { path, source, symbols: &f.symbols }).collect();
+    // request: a fetch in the `from` box (direct, or through a wrapper it imports), or in a function the box reaches
+    // through call facts (D30), that matches a route in the `to` box.
     let routes = side.facts.get(&to_file).map(|f| f.routes.clone()).unwrap_or_default();
-    let matched = find_fetch_sites(&sources).iter().any(|site| {
-        if site.file != from_file || from.symbol.as_ref().is_some_and(|s| !within(&site.from, s)) {
-            return false;
-        }
-        match_route(&site.method, &site.url, site.exact, &routes).is_some_and(|(route, _)| match &to.symbol {
-            Some(sym) => route.handler.as_deref() == Some(sym.as_str()),
-            None => true,
-        })
-    });
+    let matched = reached(side, &from_file, from.symbol.as_deref())
+        .iter()
+        .any(|(file, symbol)| requests_route(side, file, symbol.as_deref(), &routes, to.symbol.as_deref()));
     if !matched {
         let from_name = from.symbol.clone().unwrap_or_else(|| from_file.clone());
         let to_name = to.symbol.clone().unwrap_or_else(|| to_file.clone());
         reasons.push(format!("no request from {from_name} matches a route handled by {to_name}"));
     }
     result(evidence, reasons, Proof::Fact)
+}
+
+/// How many calls a `request` arrow may follow from its `from` box to the fetch (D30).
+const MAX_REQUEST_HOPS: usize = 4;
+
+/// The `from` box and the functions it reaches through call facts, up to [`MAX_REQUEST_HOPS`] calls away: the box
+/// itself first (its symbol, or the whole file when it has none), then each symbol a call fact names. Call facts are
+/// resolved by scope, import or type, never by name alone (D16), so every hop is one a reader would also make.
+fn reached(side: &Side<'_>, file: &str, symbol: Option<&str>) -> Vec<(String, Option<String>)> {
+    let mut out: Vec<(String, Option<String>)> = vec![(file.to_string(), symbol.map(str::to_string))];
+    let mut seen: HashSet<String> = symbol.map(str::to_string).into_iter().collect();
+    let mut frontier = 0;
+    for _ in 0..MAX_REQUEST_HOPS {
+        let level = out.len();
+        for i in frontier..level {
+            let (file, symbol) = out[i].clone();
+            let Some(facts) = side.facts.get(&file) else { continue };
+            let others: Vec<&str> =
+                facts.imports.iter().filter(|i| !i.to.starts_with("vendor:")).map(|i| i.to.as_str()).collect();
+            for c in side.facts.calls(&file, &others) {
+                if symbol.as_deref().is_some_and(|s| !within(&c.from, s)) {
+                    continue;
+                }
+                if !c.to.contains('#') || c.to.starts_with("vendor:") || c.to.starts_with("table:") {
+                    continue;
+                }
+                if seen.insert(c.to.clone()) {
+                    out.push((file_of(&c.to).to_string(), Some(c.to.clone())));
+                }
+            }
+        }
+        if out.len() == level {
+            break;
+        }
+        frontier = level;
+    }
+    out
+}
+
+/// Whether a fetch site in `symbol` (or anywhere in `file`) matches one of `routes` handled by `handler` (any
+/// handler when `None`). Sites through a wrapper count when the wrapper is in the file or one it imports.
+fn requests_route(
+    side: &Side<'_>,
+    file: &str,
+    symbol: Option<&str>,
+    routes: &[nonio_facts::RouteFact],
+    handler: Option<&str>,
+) -> bool {
+    let Some(facts) = side.facts.get(file) else {
+        return false;
+    };
+    let neighbours: Vec<String> = std::iter::once(file.to_string())
+        .chain(facts.imports.iter().filter(|i| !i.to.starts_with("vendor:")).map(|i| i.to.clone()))
+        .collect();
+    let loaded: Vec<(String, Rc<str>, Rc<FileFacts>)> =
+        neighbours.iter().filter_map(|p| Some((p.clone(), side.repo.text(p)?, side.facts.get(p)?))).collect();
+    let sources: Vec<SourceFile<'_>> =
+        loaded.iter().map(|(path, source, f)| SourceFile { path, source, symbols: &f.symbols }).collect();
+    find_fetch_sites(&sources).iter().any(|site| {
+        if site.file != file || symbol.is_some_and(|s| !within(&site.from, s)) {
+            return false;
+        }
+        match_route(&site.method, &site.url, site.exact, routes).is_some_and(|(route, _)| match handler {
+            Some(h) => route.handler.as_deref() == Some(h),
+            None => true,
+        })
+    })
 }
 
 fn check_absence(a: &MapAbsence, repo: &dyn Reader, files: &[String]) -> AbsenceCheck {

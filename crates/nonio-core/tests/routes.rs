@@ -41,7 +41,7 @@ fn component_to_controller_arrows_are_confirmed_by_facts() {
     let r = report();
     let got: HashMap<&str, (Status, Option<Proof>, Vec<String>)> =
         r.edges.iter().map(|(id, c)| (id.as_str(), (c.status, c.proof, c.reasons.clone()))).collect();
-    for id in ["vue-java", "tsx-kotlin", "nuxt", "next"] {
+    for id in ["vue-java", "tsx-kotlin", "nuxt", "next", "through-client", "four-hops"] {
         assert_eq!(got[id], (Status::Confirmed, Some(Proof::Fact), vec![]), "{id}");
     }
     assert!(r.nodes.values().all(|n| n.status == Status::Confirmed), "{:?}", r.nodes);
@@ -55,5 +55,20 @@ fn a_request_to_another_handler_of_the_same_controller_fails() {
     assert_eq!(
         e.reasons,
         vec!["no request from web/src/components/OrderList.vue#load matches a route handled by backend/src/main/java/com/shop/orders/OrderController.java#OrderController.get"]
+    );
+}
+
+#[test]
+fn a_request_arrow_follows_call_facts_up_to_four_hops() {
+    let r = report();
+    // OrderDetail.vue#open → api/orders.ts#getOrder → fetch(`/api/orders/${id}`): one hop.
+    assert_eq!(r.edges["through-client"].status, Status::Confirmed);
+    // chain.ts#h1 → h2 → h3 → h4 → h5 fetches: four hops. Far.vue#far → h1 makes five.
+    assert_eq!(r.edges["four-hops"].status, Status::Confirmed);
+    let far = &r.edges["five-hops"];
+    assert_eq!(far.status, Status::Unconfirmed);
+    assert_eq!(
+        far.reasons,
+        vec!["no request from web/src/components/Far.vue#far matches a route handled by backend/src/main/java/com/shop/orders/OrderController.java#OrderController.list"]
     );
 }
