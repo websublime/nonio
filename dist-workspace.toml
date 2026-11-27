@@ -5,16 +5,15 @@ members = ["cargo:."]
 [dist]
 cargo-dist-version = "0.34.0"
 ci = "github"
-installers = ["shell", "powershell", "npm", "homebrew"]
+# npm comes from tools/npm-packages instead: one package per platform with the binary inside (D24), for every registry.
+installers = ["shell", "powershell", "homebrew"]
 targets = ["aarch64-apple-darwin", "x86_64-apple-darwin", "aarch64-unknown-linux-gnu", "x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"]
 install-path = "CARGO_HOME"
 install-updater = false
 pr-run-mode = "upload"
-npm-scope = "@websublime"
-npm-package = "nonio"
 tap = "websublime/homebrew-tap"
 formula = "nonio"
-publish-jobs = ["homebrew", "npm"]
+publish-jobs = ["homebrew"]
 # NOTICE carries illuminate's copyright for the parts ported from it (D02).
 include = ["NOTICE"]
 github-build-setup = "../build-setup.yml"
