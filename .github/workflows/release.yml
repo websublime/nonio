@@ -132,7 +132,7 @@ jobs:
         with:
           "node-version": 22
       - name: "Build the viewer"
-        run: "npm ci && npm run build"
+        run: "cd viewer && npm ci && npm run build"
         shell: "bash"
       - uses: swatinem/rust-cache@v2
         with:
