@@ -11,8 +11,8 @@ use std::rc::Rc;
 
 use indexmap::IndexMap;
 use nonio_facts::{
-    find_fetch_sites, match_route, matches_any, settle_calls, squash, CallFact, Extractor, FileFacts, RepoView,
-    SourceFile, SymbolFact,
+    find_fetch_sites, match_route, matches_any, settle_calls, squash, CallFact, EntryKind, Extractor, FileFacts,
+    RepoView, SourceFile, SymbolFact,
 };
 use regex::Regex;
 use serde::Serialize;
@@ -772,7 +772,12 @@ fn check_edge_now(e: &MapEdge, by_id: &HashMap<&str, &MapNode>, side: &Side<'_>,
     // request: a fetch in the `from` box (direct, or through a wrapper it imports), or in a function the box reaches
     // through call facts (D30), that matches a route in the `to` box.
     let routes = side.facts.get(&to_file).map(|f| f.routes.clone()).unwrap_or_default();
-    let matched = reached(side, &from_file, from.symbol.as_deref())
+    let boxes: HashSet<&str> = by_id
+        .values()
+        .filter_map(|n| n.symbol.as_deref())
+        .filter(|s| Some(*s) != from.symbol.as_deref() && Some(*s) != to.symbol.as_deref())
+        .collect();
+    let matched = reached(side, &from_file, from.symbol.as_deref(), &boxes)
         .iter()
         .any(|(file, symbol)| requests_route(side, file, symbol.as_deref(), &routes, to.symbol.as_deref()));
     if !matched {
@@ -783,41 +788,62 @@ fn check_edge_now(e: &MapEdge, by_id: &HashMap<&str, &MapNode>, side: &Side<'_>,
     result(evidence, reasons, Proof::Fact)
 }
 
-/// How many calls a `request` arrow may follow from its `from` box to the fetch (D30).
-const MAX_REQUEST_HOPS: usize = 4;
-
-/// The `from` box and the functions it reaches through call facts, up to [`MAX_REQUEST_HOPS`] calls away: the box
-/// itself first (its symbol, or the whole file when it has none), then each symbol a call fact names. Call facts are
-/// resolved by scope, import or type, never by name alone (D16), so every hop is one a reader would also make.
-fn reached(side: &Side<'_>, file: &str, symbol: Option<&str>) -> Vec<(String, Option<String>)> {
+/// The `from` box and the functions it reaches through call facts (D30): the box itself first (its symbol, or the
+/// whole file when it has none), then each symbol a call fact names, as far as the calls go, but never into another
+/// unit of the app ([`is_boundary`]). Call facts are resolved by scope, import or type, never by name alone (D16), so
+/// every step is one a reader would also make.
+fn reached(side: &Side<'_>, file: &str, symbol: Option<&str>, boxes: &HashSet<&str>) -> Vec<(String, Option<String>)> {
     let mut out: Vec<(String, Option<String>)> = vec![(file.to_string(), symbol.map(str::to_string))];
     let mut seen: HashSet<String> = symbol.map(str::to_string).into_iter().collect();
-    let mut frontier = 0;
-    for _ in 0..MAX_REQUEST_HOPS {
-        let level = out.len();
-        for i in frontier..level {
-            let (file, symbol) = out[i].clone();
-            let Some(facts) = side.facts.get(&file) else { continue };
-            let others: Vec<&str> =
-                facts.imports.iter().filter(|i| !i.to.starts_with("vendor:")).map(|i| i.to.as_str()).collect();
-            for c in side.facts.calls(&file, &others) {
-                if symbol.as_deref().is_some_and(|s| !within(&c.from, s)) {
-                    continue;
-                }
-                if !c.to.contains('#') || c.to.starts_with("vendor:") || c.to.starts_with("table:") {
-                    continue;
-                }
-                if seen.insert(c.to.clone()) {
-                    out.push((file_of(&c.to).to_string(), Some(c.to.clone())));
-                }
+    let mut i = 0;
+    while i < out.len() {
+        let (at, within_symbol) = out[i].clone();
+        i += 1;
+        let Some(facts) = side.facts.get(&at) else { continue };
+        let others: Vec<&str> =
+            facts.imports.iter().filter(|i| !i.to.starts_with("vendor:")).map(|i| i.to.as_str()).collect();
+        for c in side.facts.calls(&at, &others) {
+            if within_symbol.as_deref().is_some_and(|s| !within(&c.from, s)) {
+                continue;
             }
+            if !c.to.contains('#') || c.to.starts_with("vendor:") || c.to.starts_with("table:") {
+                continue;
+            }
+            if !seen.insert(c.to.clone()) || is_boundary(side, &c.to, file, symbol, boxes) {
+                continue;
+            }
+            out.push((file_of(&c.to).to_string(), Some(c.to.clone())));
         }
-        if out.len() == level {
-            break;
-        }
-        frontier = level;
     }
     out
+}
+
+/// Where a `request` arrow stops following calls: a function that is a box of the map itself (the arrow should go
+/// through that box), or one in another unit of the app: another Vue component, a React component (a `.jsx`/`.tsx`
+/// function named in capitals), or a page, route handler or other entry point. Inside the `from` box's own symbol
+/// nothing is a boundary; the rest of its file is, when it is one of those.
+fn is_boundary(side: &Side<'_>, to: &str, start_file: &str, start: Option<&str>, boxes: &HashSet<&str>) -> bool {
+    if start.is_some_and(|s| within(to, s)) {
+        return false;
+    }
+    if boxes.iter().any(|b| within(to, b)) {
+        return true;
+    }
+    let file = file_of(to);
+    if file.ends_with(".vue") && file != start_file {
+        return true;
+    }
+    let name = to[file.len() + 1..].split('.').next().unwrap_or("");
+    let jsx = file.ends_with(".tsx") || file.ends_with(".jsx");
+    if jsx && name.starts_with(|c: char| c.is_ascii_uppercase()) {
+        return true;
+    }
+    side.facts.get(file).is_some_and(|f| {
+        f.entries.iter().any(|e| match &e.symbol {
+            Some(s) => within(to, s),
+            None => file != start_file && matches!(e.kind, EntryKind::Page | EntryKind::Route),
+        })
+    })
 }
 
 /// Whether a fetch site in `symbol` (or anywhere in `file`) matches one of `routes` handled by `handler` (any
