@@ -251,6 +251,7 @@ impl<'g> Index<'g> {
             let mut found = found.into_iter().filter(|id| self.is_type_id(id));
             return match (found.next(), found.next()) {
                 (Some(one), None) => self.types_by_names.get(&names(one)).copied(),
+                (None, _) => self.imported_type(f, name),
                 _ => None,
             };
         }
@@ -258,6 +259,33 @@ impl<'g> Index<'g> {
         let ns: Vec<String> = package.id.namespaces_iter().map(str::to_string).collect();
         match self.types_by_package.get(&(ns, name.to_string()))?.as_slice() {
             [one] => Some(one),
+            _ => None,
+        }
+    }
+
+    /// The type an import names by its full path, when code2graph left the import unresolved: in Java and Kotlin a
+    /// class with a constructor has two definitions of that name (the class and the constructor), and code2graph
+    /// links no import to an ambiguous name.
+    fn imported_type(&self, f: &'g code2graph::FileFacts, name: &str) -> Option<&'g SymbolId> {
+        let mut found: HashSet<&SymbolId> = HashSet::new();
+        for r in f.references.iter().filter(|r| r.role == RefRole::Import && r.name == name) {
+            let Some(path) = r.from_path.as_deref().filter(|p| !p.is_empty() && !p.starts_with('.')) else {
+                return None;
+            };
+            let segs: Vec<&str> = path.split(['.', '/']).collect();
+            let leaf = r.imported_name.as_deref().unwrap_or(&r.name);
+            for ((ns, n), ids) in &self.types_by_package {
+                if n == leaf
+                    && ns.len() >= segs.len()
+                    && ns[ns.len() - segs.len()..].iter().zip(&segs).all(|(a, b)| a == b)
+                {
+                    found.extend(ids.iter().copied());
+                }
+            }
+        }
+        let mut found = found.into_iter();
+        match (found.next(), found.next()) {
+            (Some(one), None) => Some(one),
             _ => None,
         }
     }
@@ -487,7 +515,14 @@ impl<'g> Index<'g> {
                     _ => None,
                 })
                 .collect();
-            let to = match resolved.into_iter().collect::<Vec<_>>().as_slice() {
+            let mut resolved: Vec<&str> = resolved.into_iter().collect();
+            if resolved.is_empty() {
+                let by_path = self.imported_type(f, &r.name).and_then(|t| self.defined_in.get(t));
+                if let Some([one]) = by_path.map(Vec::as_slice) {
+                    resolved.push(one.file.as_str());
+                }
+            }
+            let to = match resolved.as_slice() {
                 [one] if *one != f.file => one.to_string(),
                 [_] => continue,
                 _ => match r.from_path.as_deref() {

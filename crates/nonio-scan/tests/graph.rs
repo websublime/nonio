@@ -296,3 +296,18 @@ fn a_receiver_type_is_the_one_its_file_imports() {
     let facts = graph_facts(&texts(&[s, b, c]));
     assert_eq!(facts["a/S.kt"].calls[0].to, "b/Mailer.kt#Mailer.dispatch");
 }
+
+#[test]
+fn a_class_with_a_constructor_is_still_imported() {
+    // The class and its constructor share the name, and code2graph resolves no import to an ambiguous name.
+    let facts = graph_facts(&texts(&[
+        (
+            "a/S.java",
+            "package a;\nimport b.Visit;\npublic class S {\n    public void run(Visit visit) {\n        visit.describe();\n    }\n}\n",
+        ),
+        ("b/Visit.java", "package b;\npublic class Visit {\n    public Visit() {}\n    public void describe() {}\n}\n"),
+        ("c/Visit.java", "package c;\npublic class Visit {\n    public Visit() {}\n    public void describe() {}\n}\n"),
+    ]));
+    let s = &facts["a/S.java"];
+    assert_eq!(s.imports.iter().map(|i| i.to.as_str()).collect::<Vec<_>>(), ["b/Visit.java"]);
+}
