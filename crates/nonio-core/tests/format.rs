@@ -174,3 +174,35 @@ fn reads_the_original_care_app_map() {
     assert_eq!(map.nodes.len(), 8);
     assert_eq!(parse_map(&map.to_value()).unwrap(), map);
 }
+
+// Not in the original: roots (D19).
+
+#[test]
+fn a_map_may_name_its_one_root_and_without_roots_is_the_originals_format() {
+    let mut m = minimal();
+    assert_eq!(parse_map(&m).unwrap().roots, None);
+    assert!(!parse_map(&m).unwrap().to_value().as_object().unwrap().contains_key("roots"));
+    m["roots"] = json!([{ "id": "web", "commit": "a1b2c3d" }]);
+    let map = parse_map(&m).unwrap();
+    let roots = map.roots.clone().unwrap();
+    assert_eq!((roots[0].id.as_str(), roots[0].commit.clone()), ("web", Some(Some("a1b2c3d".to_string()))));
+    assert_eq!(parse_map(&map.to_value()).unwrap(), map);
+    m["roots"] = json!([{ "id": "web", "commit": null }]);
+    assert_eq!(parse_map(&m).unwrap().roots.unwrap()[0].commit, Some(None));
+}
+
+#[test]
+fn roots_take_one_root_with_a_proper_id_for_now() {
+    let with = |roots: Value| {
+        let mut m = minimal();
+        m["roots"] = roots;
+        parse_map(&m)
+    };
+    assert_eq!(
+        with(json!([{ "id": "web" }, { "id": "api" }])).unwrap_err(),
+        vec!["roots: this version reads maps of at most 1 root"]
+    );
+    assert!(with(json!([])).is_err());
+    assert!(with(json!([{ "id": "has space" }])).is_err());
+    assert!(with(json!([{ "commit": "x" }])).is_err());
+}

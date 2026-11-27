@@ -220,6 +220,19 @@ pub struct TourStop {
     pub ask: Option<Vec<String>>,
 }
 
+/// Most roots a map may name in this version. Several roots come with the `<root>:<path>` paths, per-root `since`
+/// and the rule that links requests across roots (Q12), none of which exist yet.
+pub const MAX_ROOTS: usize = 1;
+
+/// One code root of a map: a repo or checkout, and the commit it was read at, when known.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Root {
+    pub id: String,
+    /// `Some(None)` is an explicit `null`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commit: Option<Option<String>>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CodeMap {
     pub version: u8,
@@ -227,6 +240,10 @@ pub struct CodeMap {
     /// The commit the map was made from, when known. `Some(None)` is an explicit `null`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub commit: Option<Option<String>>,
+    /// The code roots the map is drawn from (D19). Absent on a map of one implicit root, which is then the same
+    /// JSON as illuminate's. This version accepts exactly one root; paths are still plain repo-relative paths.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub roots: Option<Vec<Root>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub view: Option<View>,
     /// Set on a map of a change: the commit the code is compared with.
@@ -564,6 +581,30 @@ fn branch(v: &mut V, x: &Value, path: &str) -> Option<String> {
     }
 }
 
+fn nullable_string(v: &mut V, x: &Value, path: &str) -> Option<Option<String>> {
+    if x.is_null() {
+        Some(None)
+    } else {
+        v.string(x, path, ANY).map(Some)
+    }
+}
+
+fn root(v: &mut V, x: &Value, path: &str) -> Option<Root> {
+    let o = v.object(x, path)?;
+    let id = field!(v, o, path, "id", required "string", |x, p| v.id(x, &p));
+    let commit = field!(v, o, path, "commit", optional, |x, p| nullable_string(v, x, &p));
+    Some(Root { id: id?, commit: commit? })
+}
+
+fn roots(v: &mut V, x: &Value, path: &str) -> Option<Vec<Root>> {
+    let list = v.array(x, path, 1, usize::MAX, root)?;
+    if list.len() > MAX_ROOTS {
+        v.push(path, format!("this version reads maps of at most {MAX_ROOTS} root"));
+        return None;
+    }
+    Some(list)
+}
+
 fn area(v: &mut V, x: &Value, path: &str) -> Option<Area> {
     let o = v.object(x, path)?;
     let id = field!(v, o, path, "id", required "string", |x, p| v.id(x, &p));
@@ -709,11 +750,8 @@ fn shape(v: &mut V, input: &Value) -> Option<CodeMap> {
         }
     });
     let question = field!(v, o, path, "question", required "string", |x, p| v.string(x, &p, upto(QUESTION_MAX)));
-    let commit = field!(v, o, path, "commit", optional, |x, p| if x.is_null() {
-        Some(None)
-    } else {
-        v.string(x, &p, ANY).map(Some)
-    });
+    let commit = field!(v, o, path, "commit", optional, |x, p| nullable_string(v, x, &p));
+    let roots = field!(v, o, path, "roots", optional, |x, p| roots(v, x, &p));
     let view = field!(v, o, path, "view", optional, |x, p| v.enumerated(x, &p, View::ALL, View::parse));
     let since = field!(v, o, path, "since", optional, |x, p| {
         let s = v.string(x, &p, ANY)?;
@@ -734,6 +772,7 @@ fn shape(v: &mut V, input: &Value) -> Option<CodeMap> {
         version: version?,
         question: question?,
         commit: commit?,
+        roots: roots?,
         view: view?,
         since: since?,
         pages: pages?,
