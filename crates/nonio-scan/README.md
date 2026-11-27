@@ -32,9 +32,22 @@ drops them (D16):
 | An unbound name falls back to the package | Java `this.store.persist()` (read without its receiver) → the one `persist` in the package | the callee is a class, a top-level function, a member of an enclosing type (or one it extends), or a static import |
 | Types are looked up by bare name | `m: Mailer` (imported from `b`) → `c.Mailer.dispatch`, when `c` is read first | the type name resolves where it is written (same file, explicit import, same package) to the member's owner |
 
+### Typed receivers and constructors (D15)
+
+What `code2graph` leaves unresolved, or resolved by name and dropped above, is resolved again from the types written
+in the code: the receiver is a field or a Kotlin constructor property of an enclosing type (`orderService.create()`,
+`this.repo.save()`), a local or parameter with a declared type, or a local bound once to a constructor call
+(`repo = UserRepo()` in Python); and `new Order(…)` in Java (the class and its constructor share the name, so
+`code2graph` links neither). The type name is read where it is written (same file, explicit import, same package,
+then packages imported with `.*` when exactly one has the name) and the method looked up on that type, then on the
+nearest types it extends; any doubt gives no call. These calls are `typed`.
+
 On the phase 2 fixture (`tests/fixtures/spike05`, the spike of `05-spike-crates.md` rebuilt with its decoys) the
-scanner finds 12 of the 20 calls, none wrong. The misses: fields and constructor properties as receivers (6, D15),
-`new Order(…)` in Java (the class and its constructor share the name), and a Python local it constructs.
+scanner finds 20 of the 20 calls, none wrong. On five public repos, 216 calls checked by hand, none wrong
+([Q10](../../docs/spikes/q10-code2graph.md)).
+
+Known gaps (recall only): chained calls (`a().b()`), receivers inside `apply {}`/`with {}`, inherited fields,
+`self.x` in Python, Java overloads after the first, names under 3 characters.
 
 Routes and entries for these languages come later (phase 4).
 

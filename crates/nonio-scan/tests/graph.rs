@@ -171,7 +171,7 @@ fn spike_fixture_scores_with_zero_wrong() {
     }
     println!("{report}{} of 20, {} wrong", correct.len(), wrong.len());
     assert!(wrong.is_empty(), "{report}");
-    assert_eq!(correct.len(), 12, "{report}");
+    assert_eq!(correct.len(), 20, "{report}");
 }
 
 #[test]
@@ -281,7 +281,7 @@ fn a_kotlin_constructor_property_is_not_a_package_path() {
 #[test]
 fn a_receiver_type_is_the_one_its_file_imports() {
     // code2graph keys member tables by the bare type name, so the first `Mailer` it reads wins: with `c` first it
-    // links `m.dispatch()` to c/Mailer.kt although the file imports b.Mailer. Such an edge is dropped, never kept.
+    // links `m.dispatch()` to c/Mailer.kt although the file imports b.Mailer. Such an edge is dropped.
     let s = (
         "a/S.kt",
         "package a\n\nimport b.Mailer\n\nclass S {\n    fun run(m: Mailer) {\n        m.dispatch()\n    }\n}\n",
@@ -291,10 +291,85 @@ fn a_receiver_type_is_the_one_its_file_imports() {
     for order in [[s, b, c], [c, s, b], [s, c, b]] {
         let facts = graph_facts(&texts(&order));
         let calls: Vec<&str> = facts["a/S.kt"].calls.iter().map(|c| c.to.as_str()).collect();
-        assert!(calls.iter().all(|c| c.starts_with("b/")), "{calls:?}");
+        // The typed-receiver resolver then reads the import and finds the right one.
+        assert_eq!(calls, ["b/Mailer.kt#Mailer.dispatch"]);
     }
-    let facts = graph_facts(&texts(&[s, b, c]));
-    assert_eq!(facts["a/S.kt"].calls[0].to, "b/Mailer.kt#Mailer.dispatch");
+}
+
+fn calls_of(facts: &std::collections::HashMap<String, FileFacts>, file: &str) -> Vec<(String, String)> {
+    facts[file].calls.iter().map(|c| (c.from.clone(), c.to.clone())).collect()
+}
+
+#[test]
+fn field_receivers_follow_the_declared_type() {
+    let facts = graph_facts(&texts(&[
+        (
+            "q/J.java",
+            "package q;\nimport r.Store;\npublic class J {\n    private Store store;\n    private Cache cache;\n    private java.util.List<Cache> all;\n    public void run(Cache other) {\n        this.store.persist();\n        cache.persist();\n        other.persist();\n        all.get(0);\n    }\n    public void shadow(Store cache) {\n        cache.persist();\n    }\n}\n",
+        ),
+        ("q/Cache.java", "package q;\nclass Cache extends Base {\n    public void persist() {}\n}\n"),
+        ("q/Base.java", "package q;\nclass Base {\n    public void flush() {}\n}\n"),
+        ("q/Store.java", "package q;\nclass Store {\n    public void persist() {}\n}\n"),
+        ("r/Store.java", "package r;\npublic class Store {\n    public void persist() {}\n}\n"),
+    ]));
+    assert_eq!(
+        calls_of(&facts, "q/J.java"),
+        [
+            ("q/J.java#J.run".to_string(), "r/Store.java#Store.persist".to_string()),
+            ("q/J.java#J.run".to_string(), "q/Cache.java#Cache.persist".to_string()),
+            ("q/J.java#J.shadow".to_string(), "r/Store.java#Store.persist".to_string()),
+        ]
+    );
+}
+
+#[test]
+fn inherited_methods_are_found_on_the_declared_type() {
+    let facts = graph_facts(&texts(&[
+        (
+            "q/J.java",
+            "package q;\npublic class J {\n    private Cache cache;\n    public void run() {\n        cache.flush();\n    }\n}\n",
+        ),
+        ("q/Cache.java", "package q;\nclass Cache extends Base {\n    public void persist() {}\n}\n"),
+        ("q/Base.java", "package q;\nclass Base {\n    public void flush() {}\n}\n"),
+        ("q/Other.java", "package q;\nclass Other {\n    public void flush() {}\n}\n"),
+    ]));
+    assert_eq!(calls_of(&facts, "q/J.java"), [("q/J.java#J.run".to_string(), "q/Base.java#Base.flush".to_string())]);
+}
+
+#[test]
+fn kotlin_properties_and_constructor_properties() {
+    let facts = graph_facts(&texts(&[
+        (
+            "p/A.kt",
+            "package p\n\nclass A(private val repo: Repo, plain: Repo) {\n    lateinit var later: Repo\n    private val guessed = Repo()\n    fun run() {\n        repo.store()\n        this.repo.store()\n        later.store()\n        guessed.store()\n    }\n}\n",
+        ),
+        ("p/Repo.kt", "package p\n\nclass Repo {\n    fun store() {}\n}\n"),
+        ("p/Other.kt", "package p\n\nclass Other {\n    fun store() {}\n}\n"),
+    ]));
+    let calls: Vec<(String, String, u32)> =
+        facts["p/A.kt"].calls.iter().map(|c| (c.from.clone(), c.to.clone(), c.count)).collect();
+    // `guessed` has no written type, so `guessed.store()` gives nothing; the three others are Repo.store.
+    assert_eq!(
+        calls,
+        [
+            ("p/A.kt#A.guessed".to_string(), "p/Repo.kt#Repo".to_string(), 1),
+            ("p/A.kt#A.run".to_string(), "p/Repo.kt#Repo.store".to_string(), 3),
+        ]
+    );
+}
+
+#[test]
+fn a_python_local_reassigned_is_not_typed() {
+    let facts = graph_facts(&texts(&[
+        (
+            "app/main.py",
+            "from .repo import UserRepo, CacheRepo\n\n\ndef once():\n    repo = UserRepo()\n    return repo.load()\n\n\ndef twice(flag):\n    repo = UserRepo()\n    if flag:\n        repo = CacheRepo()\n    return repo.load()\n",
+        ),
+        ("app/repo.py", "class UserRepo:\n    def load(self):\n        return 1\n\n\nclass CacheRepo:\n    def load(self):\n        return 2\n"),
+    ]));
+    let loads: Vec<(String, String)> =
+        calls_of(&facts, "app/main.py").into_iter().filter(|(_, to)| to.ends_with(".load")).collect();
+    assert_eq!(loads, [("app/main.py#once".to_string(), "app/repo.py#UserRepo.load".to_string())]);
 }
 
 #[test]
