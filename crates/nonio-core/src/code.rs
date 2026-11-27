@@ -7,13 +7,13 @@
 use std::path::Path;
 
 use nonio_facts::{Extractor, SymbolKind};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::check::{check_evidence, Readers, Side, DEFAULT_LINE_WINDOW};
 use crate::format::{CodeMap, Evidence};
 
 /// A line of code an answer points at, with what it says about that line. Checked like any citation.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CodeNote {
     pub file: String,
     pub line: usize,
