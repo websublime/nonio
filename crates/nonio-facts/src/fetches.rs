@@ -1,6 +1,6 @@
-//! UI → API links: `fetch` call sites (direct, through a small wrapper such as `request(path)`, or axios/ky) with
-//! their URL literal, matched to route facts. Pure: it scans source text, using the file's symbol spans only to name
-//! the enclosing symbol.
+//! UI → API links: `fetch` call sites (direct, Nuxt's `$fetch`, `useFetch` and `useLazyFetch`, through a small
+//! wrapper such as `request(path)`, or axios/ky) with their URL literal, matched to route facts. Pure: it scans
+//! source text, using the file's symbol spans only to name the enclosing symbol.
 //!
 //! Ported from `packages/facts/src/journeys/fetches.ts` of illuminate (MIT, Copyright (c) 2026 johnz4021).
 //! Offsets are UTF-8 byte offsets, like [`crate::Span`].
@@ -44,7 +44,7 @@ fn client_re() -> &'static Regex {
     static R: OnceLock<Regex> = OnceLock::new();
     re(
         &R,
-        r"(?:(fetch|\$fetch|ofetch)|(axios|ky)\s*\.\s*(get|post|put|patch|delete|head|options))\s*(?:<[^()]*?>)?\s*\(",
+        r"(?:(fetch|\$fetch|ofetch|useFetch|useLazyFetch)|(axios|ky)\s*\.\s*(get|post|put|patch|delete|head|options))\s*(?:<[^()]*?>)?\s*\(",
     )
 }
 
@@ -235,7 +235,7 @@ struct Wrapper {
 }
 
 /// Every fetch site in `files`:
-/// 1. direct calls (`fetch`, `$fetch`, `ofetch`, `axios.<m>`, `ky.<m>`) whose first argument is a URL literal;
+/// 1. direct calls (`fetch`, `$fetch`, `ofetch`, `useFetch`, `useLazyFetch`, `axios.<m>`, `ky.<m>`) whose first argument is a URL literal;
 /// 2. wrappers: a function whose `fetch` takes a non-literal URL (`fetch(path)`, ``fetch(`/api${path}`)``) is a
 ///    wrapper with that prefix; calls to it by name, anywhere, with a URL literal first argument are sites.
 ///
@@ -258,7 +258,7 @@ pub fn find_fetch_sites(files: &[SourceFile<'_>]) -> Vec<FetchSite> {
     for f in files {
         let src = f.source;
         let bytes = src.as_bytes();
-        if !re(&HINT, r"fetch|axios|ky\s*\.").is_match(src) {
+        if !re(&HINT, r"fetch|Fetch|axios|ky\s*\.").is_match(src) {
             continue;
         }
         for m in client_re().captures_iter(src) {
@@ -461,6 +461,22 @@ mod tests {
         assert_eq!(sites[0].url, "/api/users");
         assert_eq!(sites[0].via.as_deref(), Some("request"));
         assert!(!sites[0].exact);
+    }
+
+    #[test]
+    fn finds_nuxt_use_fetch_in_a_vue_sfc() {
+        let src = "<script setup lang=\"ts\">\nconst { data } = await useFetch('/api/orders');\nasync function add() {\n  await useLazyFetch(`/api/orders/${id}`, { method: 'post' });\n}\n</script>\n";
+        let symbols = [sym("o.vue#add", src.find("async function").unwrap(), src.find("</script>").unwrap())];
+        let sites = find_fetch_sites(&[SourceFile { path: "o.vue", source: src, symbols: &symbols }]);
+        let got: Vec<(&str, &str, &str, Option<&str>)> =
+            sites.iter().map(|s| (s.from.as_str(), s.method.as_str(), s.url.as_str(), s.via.as_deref())).collect();
+        assert_eq!(
+            got,
+            [
+                ("o.vue", "GET", "/api/orders", Some("useFetch")),
+                ("o.vue#add", "POST", "/api/orders/{}", Some("useLazyFetch"))
+            ]
+        );
     }
 
     #[test]

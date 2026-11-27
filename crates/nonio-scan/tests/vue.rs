@@ -393,7 +393,7 @@ fn resolve(from: &str, spec: &str) -> Option<String> {
 }
 
 fn facts(src: &str) -> FileFacts {
-    let ctx = ExtractContext { resolve: &resolve, record_of: &|_| None, entries: &[], routes: &[] };
+    let ctx = ExtractContext { resolve: &resolve, record_of: &|_| None, entries: &[], routes: &[], nuxt: None };
     extract_facts("src/C.vue", src, &ctx)
 }
 

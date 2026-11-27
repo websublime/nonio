@@ -17,7 +17,7 @@ use crate::re::{at, each, end, js, test, try_js};
 use crate::record::{
     clean, comment_spans, from_oxc, from_regex, is_minified, parse, ExportTarget, Mode, ModuleRecord, BULK_MIN,
 };
-use crate::routes::{next_routes, route_fact};
+use crate::routes::{next_routes, nuxt_routes, route_fact};
 use crate::tables::{find_reads, sql_facts};
 use crate::vue::parse_sfc;
 use crate::walk::{Context, Walker};
@@ -37,6 +37,8 @@ pub struct ExtractContext<'c> {
     /// package.json entries that run this file. A `script` whose file reads its arguments becomes a `cli` entry.
     pub entries: &'c [PackageEntry],
     pub routes: &'c [RoutePattern],
+    /// The directory of the `nuxt.config` above the file (`""` for the repo root), when there is one.
+    pub nuxt: Option<&'c str>,
 }
 
 /// Reads CLI arguments (`process.argv.slice(2)`, `argv[2]`, `parseArgs(…)`), not just the `argv[1]` is-main check.
@@ -94,7 +96,12 @@ pub fn extract(path: &str, source: &str, ctx: &ExtractContext<'_>) -> (FileFacts
         routes.entry(r.id.clone()).or_insert(r);
     }
     let export_names: Vec<&str> = record.exports.keys().map(String::as_str).collect();
-    let (next, page) = next_routes(path, &export_names);
+    let (mut next, mut page) = next_routes(path, &export_names);
+    if let Some(root) = ctx.nuxt {
+        let (nuxt, nuxt_page) = nuxt_routes(path, root);
+        next.extend(nuxt);
+        page = page.or(nuxt_page);
+    }
     let exported_symbol = |name: &str| {
         let local = match record.exports.get(name) {
             Some(ExportTarget::Local(l)) => l.as_str(),

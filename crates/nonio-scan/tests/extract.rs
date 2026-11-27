@@ -50,16 +50,23 @@ struct Ctx {
     entries: Vec<PackageEntry>,
     routes: Vec<RoutePattern>,
     resolve: fn(&str, &str) -> Option<String>,
+    nuxt: Option<&'static str>,
 }
 
 impl Default for Ctx {
     fn default() -> Self {
-        Self { entries: Vec::new(), routes: Vec::new(), resolve }
+        Self { entries: Vec::new(), routes: Vec::new(), resolve, nuxt: None }
     }
 }
 
 fn facts_with(src: &str, path: &str, c: &Ctx) -> FileFacts {
-    let ctx = ExtractContext { resolve: &c.resolve, record_of: &record_of, entries: &c.entries, routes: &c.routes };
+    let ctx = ExtractContext {
+        resolve: &c.resolve,
+        record_of: &record_of,
+        entries: &c.entries,
+        routes: &c.routes,
+        nuxt: c.nuxt,
+    };
     extract_facts(path, src, &ctx)
 }
 
@@ -505,4 +512,21 @@ fn a_route_handler_declared_inside_a_function_resolves_to_it() {
     );
     let handlers: Vec<String> = f.routes.iter().map(|r| r.handler.clone().unwrap_or_default()).collect();
     assert_eq!(handlers, ["src/x.ts#setup.list"]);
+}
+
+#[test]
+fn nuxt_server_routes_and_pages_below_the_nuxt_config() {
+    let c = Ctx { nuxt: Some("web"), ..Ctx::default() };
+    let src =
+        "export default defineEventHandler(async (event) => {\n  return load(getRouterParam(event, 'id'));\n});\n";
+    let f = facts_with(src, "web/server/api/orders/[id].get.ts", &c);
+    let got: Vec<String> =
+        f.routes.iter().map(|r| format!("{} → {}", r.id, r.handler.as_deref().unwrap_or("null"))).collect();
+    assert_eq!(got, ["route:GET /api/orders/{} → web/server/api/orders/[id].get.ts#default"]);
+    assert_eq!(f.entries.iter().map(|e| e.id.as_str()).collect::<Vec<_>>(), ["entry:route:GET /api/orders/{}"]);
+    let named = facts_with("export default function handler() {}", "web/server/routes/health.ts", &c);
+    assert_eq!(named.routes[0].handler.as_deref(), Some("web/server/routes/health.ts#handler"));
+    let page = facts_with("<template><p>hi</p></template>\n", "web/pages/orders/[id].vue", &c);
+    assert_eq!(page.entries.iter().map(|e| e.id.as_str()).collect::<Vec<_>>(), ["entry:page:/orders/{}"]);
+    assert!(facts_at(src, "web/server/api/orders/[id].get.ts").routes.is_empty(), "no nuxt.config, no routes");
 }

@@ -10,7 +10,7 @@ fn tables(code: &str) -> Vec<String> {
 fn no_ctx<T>(f: impl FnOnce(&ExtractContext<'_>) -> T) -> T {
     let resolve = |_: &str, _: &str| None;
     let record_of = |_: &str| None;
-    f(&ExtractContext { resolve: &resolve, record_of: &record_of, entries: &[], routes: &[] })
+    f(&ExtractContext { resolve: &resolve, record_of: &record_of, entries: &[], routes: &[], nuxt: None })
 }
 
 #[test]
