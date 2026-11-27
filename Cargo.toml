@@ -5,7 +5,7 @@ members = ["crates/nonio-facts", "crates/nonio-core"]
 [workspace.package]
 version = "0.0.1"
 edition = "2021"
-rust-version = "1.85"
+rust-version = "1.88"
 license = "MIT"
 repository = "https://github.com/websublime/nonio"
 
