@@ -300,7 +300,7 @@ fn now_ms() -> u128 {
 }
 
 /// The time now as `2026-11-27T19:25:35.451Z`.
-fn now_iso() -> String {
+pub(crate) fn now_iso() -> String {
     let ms = now_ms() as i64;
     let (days, rem) = (ms.div_euclid(86_400_000), ms.rem_euclid(86_400_000));
     // Days since 1970-01-01 to a civil date (Howard Hinnant's algorithm).
@@ -1105,7 +1105,7 @@ async fn api(
         (["screens", id], &Method::GET) => {
             let id = id.strip_suffix(".png").unwrap_or(id);
             read_capture(&inner.root, id).map_err(|_| HttpError::not_found("No such capture."))?;
-            return send_file(&capture_paths(&inner.root, id).0, "image/png");
+            return send_file(&capture_paths(&inner.root, id).1, "image/png");
         }
         (["repo-image"], &Method::GET) => {
             let (file, kind) = repo_image(&inner.root, q.get("file").map(String::as_str).unwrap_or(""))

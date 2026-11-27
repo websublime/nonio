@@ -17,6 +17,7 @@ pub mod reply;
 pub mod request;
 pub mod scan;
 pub mod schemas;
+pub mod screens;
 pub mod server;
 pub mod step;
 pub mod store;
