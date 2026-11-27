@@ -1,6 +1,8 @@
 //! Shared by the server tests: the care-app fixture and throwaway copies of it.
 #![allow(dead_code)]
 
+pub mod web;
+
 use std::fs;
 use std::path::{Path, PathBuf};
 
