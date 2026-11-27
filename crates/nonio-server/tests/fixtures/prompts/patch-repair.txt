@@ -1,0 +1,4 @@
+Your changes couldn't be applied to the map:
+- edge e9 goes to a box that does not exist
+
+Return the corrected changes, in the same form: only what changes, each item complete.

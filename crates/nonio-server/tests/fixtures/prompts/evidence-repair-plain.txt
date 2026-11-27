@@ -1,0 +1,9 @@
+The checker re-read the code and could not confirm these claims:
+- box s2: the code has no symbol src/server/routes.ts#convert
+- box s3: src/patients/service.ts:5: "this text is nowhere" isn't on line 5 or near it
+- arrow e12: the code has no call from src/ui/PatientHeader.tsx#PatientHeader to src/server/routes.ts#convert
+- arrow e23: the code has no call from src/server/routes.ts#convert to src/patients/service.ts#markConverted
+
+Fix only these. For each one, correct it (exact line text, right line number, a real symbol name, the right arrow kind) or drop it if it isn't true. If an absence was wrong, the code is connected after all: drop the absence and add that arrow.
+
+Return only the changes, not the whole map. Put each corrected box, arrow or absence (complete, with all its fields and the same id) and anything new in `nodes`, `edges`, `absences` or `areas`, and the ids of claims to drop in `remove`. Everything you leave out stays as it is.

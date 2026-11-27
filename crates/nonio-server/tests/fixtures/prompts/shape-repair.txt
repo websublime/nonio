@@ -1,0 +1,5 @@
+The map you returned has problems that stop it from being drawn:
+- nodes: Required
+- edges.0.from: Expected string
+
+Return the complete corrected map.
