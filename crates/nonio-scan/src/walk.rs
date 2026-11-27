@@ -6,13 +6,14 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use indexmap::IndexMap;
-use nonio_facts::{CallConfidence, CallFact, RouteFact, SymbolFact, SymbolKind};
+use nonio_facts::{url_path, CallConfidence, CallFact, ClientFact, RequestFact, RouteFact, SymbolFact, SymbolKind};
 use oxc_ast::ast::*;
 use oxc_ast_visit::{walk, Visit};
 use oxc_semantic::Scoping;
 use oxc_span::{GetSpan, Span};
 use oxc_syntax::scope::ScopeFlags;
 
+use crate::clients::{client_lib, ClientLib, CLIENT_LIBS, REQUEST_METHODS};
 use crate::hash::{hash_text, squash};
 use crate::record::{ExportTarget, ModuleRecord};
 use crate::resolve::package_name;
@@ -128,6 +129,29 @@ fn str_value(e: Option<&Expression<'_>>) -> Option<String> {
     }
 }
 
+/// A URL written as a string or template literal: its text with each `${…}` as `{}`, and whether it has none.
+fn url_literal(e: &Expression<'_>) -> Option<(String, bool)> {
+    match unwrap(e).expr()? {
+        Expression::StringLiteral(s) => Some((s.value.to_string(), true)),
+        Expression::TemplateLiteral(t) => {
+            let parts: Vec<String> = t.quasis.iter().map(|q| q.value.raw.to_string()).collect();
+            Some((parts.join("{}"), t.expressions.is_empty()))
+        }
+        _ => None,
+    }
+}
+
+/// `{ method: 'post' }` in a request's options, upper case.
+fn option_method(e: &Expression<'_>) -> Option<String> {
+    let o = unwrap(e).object()?;
+    o.properties.iter().find_map(|p| match p {
+        ObjectPropertyKind::ObjectProperty(p) if key_name(&p.key, p.computed).as_deref() == Some("method") => {
+            str_value(Some(&p.value)).map(|m| m.to_uppercase())
+        }
+        _ => None,
+    })
+}
+
 fn key_name(key: &PropertyKey<'_>, computed: bool) -> Option<String> {
     match key {
         PropertyKey::StaticIdentifier(i) if !computed => Some(i.name.to_string()),
@@ -231,6 +255,10 @@ pub struct Walker<'a, 'c> {
     resolved: HashMap<(String, String), Option<String>>,
     /// The span of the statement holding a Vue SFC's lowered template (see [`crate::vue`]).
     template: Option<Span>,
+    /// HTTP clients made at module scope (see [`crate::clients`]).
+    pub clients: Vec<ClientFact>,
+    /// Requests through a client library or an instance.
+    pub requests: Vec<RequestFact>,
 }
 
 impl<'a, 'c> Walker<'a, 'c> {
@@ -265,6 +293,8 @@ impl<'a, 'c> Walker<'a, 'c> {
             locals: Vec::new(),
             resolved: HashMap::new(),
             template: None,
+            clients: Vec::new(),
+            requests: Vec::new(),
         }
     }
 
@@ -413,6 +443,10 @@ impl<'a, 'c> Walker<'a, 'c> {
                         }
                         if let Some(prefix) = self.framework_prefix(d.init.as_ref(), &framework_locals) {
                             self.receivers.insert(id.name.to_string(), prefix);
+                        }
+                        if let Some((lib, prefix)) = self.client_made(d.init.as_ref()) {
+                            let id = format!("{}#{}", self.path, id.name);
+                            self.clients.push(ClientFact { id, lib: lib.pkg.to_string(), prefix });
                         }
                     }
                 }
@@ -993,6 +1027,102 @@ impl<'a, 'c> Walker<'a, 'c> {
         }
         if let Some(args) = args {
             self.framework_route(args, callee);
+            self.client_request(args, callee);
+        }
+    }
+
+    /// The library that `x` (a callee's object) resolves to by import, or `$fetch` when it is Nuxt's global.
+    fn lib_of(&mut self, x: U<'_, 'a>) -> Option<&'static ClientLib> {
+        let Some(Expression::Identifier(i)) = x.expr() else { return None };
+        let at = self.local_of(i);
+        if let Some(t) = self.target_root(Root::Ident(i.name.as_str(), at), Vec::new()) {
+            return client_lib(&t);
+        }
+        // An unbound `$fetch` is the global Nuxt gives every file (ofetch).
+        (i.name == "$fetch" && at.is_none() && self.is_global(i)).then(|| &CLIENT_LIBS[3])
+    }
+
+    /// Whether `i` refers to no binding at all (a global).
+    fn is_global(&self, i: &IdentifierReference<'a>) -> bool {
+        let Some(scoping) = self.scoping else { return false };
+        i.reference_id.get().is_some_and(|r| scoping.get_reference(r).symbol_id().is_none())
+    }
+
+    /// `lib.create(opts)` (a factory of a client library, see [`crate::clients`]): the library, and the base URL
+    /// when it is literal (`Some("")` without one; `None` when it is written but not literal).
+    fn client_made(&mut self, init: Option<&Expression<'a>>) -> Option<(&'static ClientLib, Option<String>)> {
+        let U::E(Expression::CallExpression(c)) = unwrap(init?) else { return None };
+        let U::M(MemberExpression::StaticMemberExpression(m)) = unwrap(&c.callee) else { return None };
+        let lib = self.lib_of(unwrap(&m.object))?;
+        if !lib.factories.contains(&m.property.name.as_str()) {
+            return None;
+        }
+        let prefix = match arg_expr(c.arguments.first()).map(unwrap) {
+            None => Some(String::new()),
+            Some(u) => match u.object() {
+                None => None,
+                Some(o) => {
+                    let mut prefix = Some(String::new());
+                    for p in &o.properties {
+                        match p {
+                            ObjectPropertyKind::ObjectProperty(p) => {
+                                if key_name(&p.key, p.computed).as_deref() == Some(lib.prefix_key) {
+                                    prefix = str_value(Some(&p.value));
+                                }
+                            }
+                            // A spread may hold the base URL.
+                            ObjectPropertyKind::SpreadProperty(_) => prefix = None,
+                        }
+                    }
+                    prefix
+                }
+            },
+        };
+        Some((lib, prefix))
+    }
+
+    /// A request with a URL literal through a client library (`axios.post('/x')`, `ky('/x')`) or through a value
+    /// bound to a name at module scope, here or by import (`api.get('/x')`, `api('/x')`); the checker keeps the
+    /// latter only when that name is a client ([`ClientFact`]).
+    fn client_request(&mut self, args: &[Argument<'a>], callee: U<'_, 'a>) {
+        let (object, method) = match callee {
+            U::M(MemberExpression::StaticMemberExpression(m))
+                if REQUEST_METHODS.contains(&m.property.name.as_str()) =>
+            {
+                (unwrap(&m.object), Some(m.property.name.to_uppercase()))
+            }
+            U::E(Expression::Identifier(_)) => (callee, None),
+            _ => return,
+        };
+        let Some(Expression::Identifier(i)) = object.expr() else { return };
+        let Some((url, exact)) = arg_expr(args.first()).and_then(url_literal) else { return };
+        let Some(url) = url_path(&url).or_else(|| (!url.contains("://")).then(|| format!("/{url}"))) else { return };
+        let at = self.local_of(i);
+        let via = if let Some(lib) = self.lib_of(object) {
+            if method.is_none() && !lib.callable {
+                return;
+            }
+            if lib.pkg == "ofetch" && method.is_none() {
+                return; // `ofetch('/x')` and `$fetch('/x')` are read with `fetch` (see nonio_facts::find_fetch_sites)
+            }
+            format!("vendor:{}", lib.pkg)
+        } else if at.is_some() {
+            return; // a parameter or local: nothing to resolve it to
+        } else if self.clients.iter().any(|c| c.id == format!("{}#{}", self.path, i.name)) {
+            format!("{}#{}", self.path, i.name)
+        } else if !self.bindings.contains_key(&(i.name.to_string(), None)) {
+            return; // declared here, and not a client
+        } else {
+            match self.target_root(Root::Ident(i.name.as_str(), None), Vec::new()) {
+                Some(t) if t.contains('#') && !t.starts_with("vendor:") => t,
+                _ => return,
+            }
+        };
+        let method = method.or_else(|| arg_expr(args.get(1)).and_then(option_method)).unwrap_or_else(|| "GET".into());
+        let from = self.current.map_or_else(|| self.path.to_string(), |c| self.symbols[c].id.clone());
+        let r = RequestFact { from, method, url, exact, via };
+        if !self.requests.contains(&r) {
+            self.requests.push(r);
         }
     }
 

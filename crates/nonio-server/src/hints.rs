@@ -9,7 +9,7 @@ use std::path::Path;
 use std::sync::LazyLock;
 
 use indexmap::{IndexMap, IndexSet};
-use nonio_facts::{find_fetch_sites, match_route, EntryKind, SourceFile, SymbolKind};
+use nonio_facts::{client_sites, find_fetch_sites, match_route, EntryKind, SourceFile, SymbolKind};
 use regex::Regex;
 
 use crate::changes::recent_changes;
@@ -143,7 +143,13 @@ pub fn head_start(root: &Path) -> HeadStart {
         .collect();
     let files: Vec<SourceFile<'_>> =
         sources.iter().map(|(f, s)| SourceFile { path: &f.path, source: s, symbols: &f.symbols }).collect();
-    let requests: Vec<String> = find_fetch_sites(&files)
+    let clients: HashMap<&str, &nonio_facts::ClientFact> =
+        facts.iter().flat_map(|f| &f.clients).map(|c| (c.id.as_str(), c)).collect();
+    let mut sites = find_fetch_sites(&files);
+    for f in &facts {
+        sites.extend(client_sites(f, |id| clients.get(id).map(|c| (*c).clone())));
+    }
+    let requests: Vec<String> = sites
         .into_iter()
         .filter_map(|site| {
             let (route, _) = match_route(&site.method, &site.url, site.exact, &routes)?;

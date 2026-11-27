@@ -148,6 +148,8 @@ pub fn extract(path: &str, source: &str, ctx: &ExtractContext<'_>) -> (FileFacts
 
     facts.symbols = std::mem::take(&mut w.symbols);
     facts.calls = std::mem::take(&mut w.calls).into_values().collect();
+    facts.clients = std::mem::take(&mut w.clients);
+    facts.requests = std::mem::take(&mut w.requests);
     let ok = record.mode != Mode::Regex;
     (facts, record, ok)
 }

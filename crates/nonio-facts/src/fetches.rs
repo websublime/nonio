@@ -1,5 +1,5 @@
 //! UI → API links: `fetch` call sites (direct, Nuxt's `$fetch`, `useFetch` and `useLazyFetch`, through a small
-//! wrapper such as `request(path)`, or axios/ky) with their URL literal, matched to route facts. Pure: it scans
+//! wrapper such as `request(path)`) with their URL literal, matched to route facts. Pure: it scans
 //! source text, using the file's symbol spans only to name the enclosing symbol.
 //!
 //! Ported from `packages/facts/src/journeys/fetches.ts` of illuminate (MIT, Copyright (c) 2026 johnz4021).
@@ -10,7 +10,7 @@ use std::sync::OnceLock;
 
 use regex::Regex;
 
-use crate::contract::{RouteFact, SymbolFact, SymbolKind};
+use crate::contract::{ClientFact, FileFacts, RouteFact, SymbolFact, SymbolKind};
 
 /// A call that sends an HTTP request to a URL known (at least in part) from the source text.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -24,7 +24,8 @@ pub struct FetchSite {
     pub url: String,
     /// The whole URL is literal text at the call (no template holes, no wrapper prefix).
     pub exact: bool,
-    /// Wrapper or client the call goes through (`request`, `axios.post`), `None` for a direct fetch.
+    /// Wrapper or client the call goes through (`request`, `vendor:axios`, `src/http.ts#api`), `None` for a direct
+    /// fetch.
     pub via: Option<String>,
 }
 
@@ -42,10 +43,7 @@ fn re(cell: &'static OnceLock<Regex>, pattern: &str) -> &'static Regex {
 
 fn client_re() -> &'static Regex {
     static R: OnceLock<Regex> = OnceLock::new();
-    re(
-        &R,
-        r"(?:(fetch|\$fetch|ofetch|useFetch|useLazyFetch)|(axios|ky)\s*\.\s*(get|post|put|patch|delete|head|options))\s*(?:<[^()]*?>)?\s*\(",
-    )
+    re(&R, r"(fetch|\$fetch|ofetch|useFetch|useLazyFetch)\s*(?:<[^()]*?>)?\s*\(")
 }
 
 const fn is_quote(b: u8) -> bool {
@@ -235,11 +233,13 @@ struct Wrapper {
 }
 
 /// Every fetch site in `files`:
-/// 1. direct calls (`fetch`, `$fetch`, `ofetch`, `useFetch`, `useLazyFetch`, `axios.<m>`, `ky.<m>`) whose first argument is a URL literal;
+/// 1. direct calls (`fetch`, `$fetch`, `ofetch`, `useFetch`, `useLazyFetch`) whose first argument is a URL literal;
 /// 2. wrappers: a function whose `fetch` takes a non-literal URL (`fetch(path)`, ``fetch(`/api${path}`)``) is a
 ///    wrapper with that prefix; calls to it by name, anywhere, with a URL literal first argument are sites.
 ///
-/// The method comes from the client name (`axios.post`) or a `method: "POST"` in the call's arguments; else GET.
+/// The method comes from a `method: "POST"` in the call's arguments; else GET. Client libraries (axios, ky, got,
+/// `ofetch.create`) and their instances are not read here: the extractor resolves those calls ([`RequestFact`],
+/// [`client_sites`]).
 /// Sorted by file, then position.
 pub fn find_fetch_sites(files: &[SourceFile<'_>]) -> Vec<FetchSite> {
     static HINT: OnceLock<Regex> = OnceLock::new();
@@ -258,7 +258,7 @@ pub fn find_fetch_sites(files: &[SourceFile<'_>]) -> Vec<FetchSite> {
     for f in files {
         let src = f.source;
         let bytes = src.as_bytes();
-        if !re(&HINT, r"fetch|Fetch|axios|ky\s*\.").is_match(src) {
+        if !re(&HINT, r"fetch|Fetch").is_match(src) {
             continue;
         }
         for m in client_re().captures_iter(src) {
@@ -269,8 +269,8 @@ pub fn find_fetch_sites(files: &[SourceFile<'_>]) -> Vec<FetchSite> {
             let open = whole.end();
             let end = args_end(bytes, open);
             let a = skip_ws(bytes, open);
-            let client = m.get(1).map_or_else(|| format!("{}.{}", &m[2], &m[3]), |c| c.as_str().to_string());
-            let fixed = m.get(3).map(|x| x.as_str().to_uppercase());
+            let client = m[1].to_string();
+            let fixed: Option<String> = None;
             let from = enclosing(f, whole.start());
             if let Some(s) = read_string(bytes, a) {
                 // `${…}` right after a literal prefix that doesn't end in `/` (e.g. `/api${path}`): a wrapper, not a site.
@@ -351,6 +351,36 @@ pub fn find_fetch_sites(files: &[SourceFile<'_>]) -> Vec<FetchSite> {
     }
     sites.sort_by(|(x, xa), (y, ya)| x.file.cmp(&y.file).then(xa.cmp(ya)));
     sites.into_iter().map(|(s, _)| s).collect()
+}
+
+/// The requests a file's facts hold, as fetch sites: a call on a client library as written, a call through an
+/// instance with the instance's prefix in front. `client` finds a [`ClientFact`] by id (in whatever file defines it);
+/// a request through an instance it doesn't find, or one whose prefix isn't known, is left out.
+pub fn client_sites(facts: &FileFacts, client: impl Fn(&str) -> Option<ClientFact>) -> Vec<FetchSite> {
+    let mut out = Vec::new();
+    for r in &facts.requests {
+        let (url, exact) = if r.via.starts_with("vendor:") {
+            (Some(r.url.clone()), r.exact)
+        } else {
+            match client(&r.via).and_then(|c| c.prefix) {
+                Some(p) => {
+                    (url_path(&format!("{}/{}", p.trim_end_matches('/'), r.url.trim_start_matches('/'))), r.exact)
+                }
+                None => (None, false),
+            }
+        };
+        if let Some(url) = url {
+            out.push(FetchSite {
+                file: facts.path.clone(),
+                from: r.from.clone(),
+                method: r.method.clone(),
+                url,
+                exact,
+                via: Some(r.via.clone()),
+            });
+        }
+    }
+    out
 }
 
 /// How sure a route match is.
@@ -477,6 +507,34 @@ mod tests {
                 ("o.vue#add", "POST", "/api/orders/{}", Some("useLazyFetch"))
             ]
         );
+    }
+
+    #[test]
+    fn client_sites_put_the_instance_prefix_in_front() {
+        use crate::contract::RequestFact;
+        let mut f = FileFacts::empty("ui.ts");
+        let req = |url: &str, via: &str| RequestFact {
+            from: "ui.ts#load".into(),
+            method: "GET".into(),
+            url: url.into(),
+            exact: true,
+            via: via.into(),
+        };
+        f.requests = vec![
+            req("/orders", "http.ts#api"),
+            req("/x", "http.ts#env"),
+            req("/a", "vendor:axios"),
+            req("/b", "ui.ts#nope"),
+        ];
+        let client = |id: &str| match id {
+            "http.ts#api" => {
+                Some(ClientFact { id: id.into(), lib: "ky".into(), prefix: Some("https://shop.test/api/".into()) })
+            }
+            "http.ts#env" => Some(ClientFact { id: id.into(), lib: "axios".into(), prefix: None }),
+            _ => None,
+        };
+        let urls: Vec<String> = client_sites(&f, client).into_iter().map(|s| s.url).collect();
+        assert_eq!(urls, ["/api/orders", "/a"]);
     }
 
     #[test]
