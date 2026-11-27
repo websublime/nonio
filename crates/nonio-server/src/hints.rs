@@ -26,7 +26,8 @@ static TEST_FILE: LazyLock<Regex> = LazyLock::new(|| {
         .expect("valid regex")
 });
 static JS_FILE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\.(tsx?|jsx?|mjs|cjs)$").expect("valid regex"));
-static FETCHES: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\bfetch\(|axios|ky\.").expect("valid regex"));
+static FETCHES: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\bfetch\(|\buse(?:Lazy)?Fetch\b|axios|ky\.").expect("valid regex"));
 
 pub fn is_test_file(path: &str) -> bool {
     TEST_FILE.is_match(path)

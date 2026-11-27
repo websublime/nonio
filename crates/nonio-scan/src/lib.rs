@@ -139,11 +139,13 @@ impl Extractor for OxcExtractor {
             let root = resolver.root().to_path_buf();
             package_entries(&root, &|p: &str| root.join(p).is_file())
         });
+        let nuxt = nuxt_root(repo, path);
         let ctx = ExtractContext {
             resolve: &resolve,
             record_of: &record_of,
             entries: entries.get(path).map_or(&[], Vec::as_slice),
             routes: &self.routes,
+            nuxt: nuxt.as_deref(),
         };
         let (facts, record, _) = extract::extract(path, source, &ctx);
         if !path.ends_with(".sql") {
@@ -152,6 +154,20 @@ impl Extractor for OxcExtractor {
         Some(facts)
     }
 }
+
+/// The directory of the nearest `nuxt.config.*` above `path` (`""` for the repo root).
+fn nuxt_root(repo: &dyn RepoView, path: &str) -> Option<String> {
+    let mut dir = path;
+    while let Some(i) = dir.rfind('/') {
+        dir = &dir[..i];
+        if NUXT_CONFIGS.iter().any(|c| repo.exists(&format!("{dir}/{c}"))) {
+            return Some(dir.to_string());
+        }
+    }
+    NUXT_CONFIGS.iter().any(|c| repo.exists(c)).then(String::new)
+}
+
+const NUXT_CONFIGS: [&str; 4] = ["nuxt.config.ts", "nuxt.config.js", "nuxt.config.mjs", "nuxt.config.mts"];
 
 /// Every backend of one repo: Java, Kotlin and Python files go to [`GraphExtractor`], the rest to [`OxcExtractor`].
 pub struct Scanner {

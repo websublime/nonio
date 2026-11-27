@@ -115,6 +115,54 @@ pub fn next_routes(path: &str, export_names: &[&str]) -> (Vec<NextRoute>, Option
     (Vec::new(), None)
 }
 
+static SCRIPT_EXT: LazyLock<Regex> = LazyLock::new(|| js(r"\.[cm]?[jt]sx?$"));
+static NITRO_METHOD: LazyLock<Regex> = LazyLock::new(|| js(r"\.(get|post|put|patch|delete|head|options)$"));
+
+/// URL path for Nuxt/Nitro file segments: `index` drops out at the end, route groups `(x)` drop out.
+fn nuxt_path(rest: &str) -> String {
+    let rest = INDEX.replace(rest, "").into_owned();
+    let segs: Vec<&str> = rest
+        .split('/')
+        .filter(|s| !s.is_empty() && !(s.starts_with('(') && s.ends_with(')') && s.len() >= 2))
+        .collect();
+    normalize_route_path(&format!("/{}", segs.join("/")))
+}
+
+/// Nuxt file-based routes for `path`, given `root`, the directory of the `nuxt.config` above it (`""` for the repo
+/// root). Server routes (Nitro): `server/api/**` serves `/api/**` and `server/routes/**` serves `/**`, a `.get`,
+/// `.post`, … suffix sets the method (none: `ANY`), and the handler is the default export. Pages: `.vue` files in
+/// `pages/` (Nuxt 3) or `app/pages/` (Nuxt 4). A `srcDir` or `serverDir` set in the config is not read.
+pub fn nuxt_routes(path: &str, root: &str) -> (Vec<NextRoute>, Option<String>) {
+    let none = (Vec::new(), None);
+    let rel = if root.is_empty() {
+        path
+    } else {
+        match path.strip_prefix(root).and_then(|r| r.strip_prefix('/')) {
+            Some(r) => r,
+            None => return none,
+        }
+    };
+    for page_dir in ["pages/", "app/pages/"] {
+        if let Some(rest) = rel.strip_prefix(page_dir).and_then(|r| r.strip_suffix(".vue")) {
+            return (Vec::new(), Some(nuxt_path(rest)));
+        }
+    }
+    let rest = match (rel.strip_prefix("server/api/"), rel.strip_prefix("server/routes/")) {
+        (Some(r), _) => format!("api/{r}"),
+        (None, Some(r)) => r.to_string(),
+        _ => return none,
+    };
+    if !test(&SCRIPT_EXT, &rest) {
+        return none;
+    }
+    let rest = SCRIPT_EXT.replace(&rest, "").into_owned();
+    let method = NITRO_METHOD.captures(rest.as_str()).ok().flatten().and_then(|c| group(&c, 1).map(str::to_uppercase));
+    let rest = NITRO_METHOD.replace(&rest, "").into_owned();
+    let route =
+        NextRoute { method: method.unwrap_or_else(|| "ANY".into()), path: nuxt_path(&rest), symbol: "default".into() };
+    (vec![route], None)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -126,5 +174,22 @@ mod tests {
             .map(|p| normalize_route_path(p))
             .collect();
         assert_eq!(got, ["/a/{}", "/a/{}/b", "/a/{}", "/a/{}", "/a/{}", "/a/{}", "/a"]);
+    }
+
+    #[test]
+    fn nuxt_server_routes_and_pages() {
+        let route = |path: &str, root: &str| {
+            let (r, page) = nuxt_routes(path, root);
+            let r: Vec<String> = r.iter().map(|r| format!("{} {}", r.method, r.path)).collect();
+            (r, page)
+        };
+        assert_eq!(route("server/api/orders/index.get.ts", ""), (vec!["GET /api/orders".into()], None));
+        assert_eq!(route("web/server/api/orders/[id].post.ts", "web"), (vec!["POST /api/orders/{}".into()], None));
+        assert_eq!(route("server/api/[...slug].ts", ""), (vec!["ANY /api/{}".into()], None));
+        assert_eq!(route("server/routes/(admin)/health.ts", ""), (vec!["ANY /health".into()], None));
+        assert_eq!(route("server/utils/db.ts", ""), (vec![], None));
+        assert_eq!(route("pages/orders/[id].vue", ""), (vec![], Some("/orders/{}".into())));
+        assert_eq!(route("app/pages/index.vue", ""), (vec![], Some("/".into())));
+        assert_eq!(route("other/server/api/x.ts", "web"), (vec![], None));
     }
 }
