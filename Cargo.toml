@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/nonio-facts", "crates/nonio-scan", "crates/nonio-core"]
+members = ["crates/nonio-facts", "crates/nonio-scan", "crates/nonio-core", "crates/nonio-server"]
 
 [workspace.package]
 version = "0.0.1"
