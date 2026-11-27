@@ -12,7 +12,7 @@ use std::rc::Rc;
 use indexmap::IndexMap;
 use nonio_facts::{
     client_sites, find_fetch_sites, match_route, matches_any, settle_calls, squash, wrapper_called, CallFact,
-    EntryKind, Extractor, FileFacts, RepoView, SourceFile, SymbolFact,
+    EntryKind, Extractor, FileFacts, RepoView, SourceFile, SymbolFact, Through,
 };
 use regex::Regex;
 use serde::Serialize;
@@ -865,7 +865,13 @@ fn requests_route(
         neighbours.iter().filter_map(|p| Some((p.clone(), side.repo.text(p)?, side.facts.get(p)?))).collect();
     let sources: Vec<SourceFile<'_>> =
         loaded.iter().map(|(path, source, f)| SourceFile { path, source, symbols: &f.symbols }).collect();
-    let client = |id: &str| side.facts.get(file_of(id))?.clients.iter().find(|c| c.id == id).cloned();
+    let client = |id: &str| {
+        let f = side.facts.get(file_of(id))?;
+        if let Some(c) = f.clients.iter().find(|c| c.id == id) {
+            return Some(Through::Client(c.clone()));
+        }
+        f.wrappers.iter().find(|w| w.id == id).cloned().map(Through::Wrapper)
+    };
     let mut sites = find_fetch_sites(&sources);
     sites.extend(client_sites(&facts, client));
     let others: Vec<&str> = neighbours.iter().skip(1).map(String::as_str).collect();

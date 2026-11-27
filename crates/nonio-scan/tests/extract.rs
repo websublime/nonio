@@ -574,3 +574,46 @@ export async function load(id: string, client: typeof api) {
         "`client` is a parameter: nothing to resolve it to"
     );
 }
+
+#[test]
+fn wrappers_around_http_clients() {
+    let src = r#"import axios from 'axios';
+import { log } from './log';
+
+const api = axios.create({ baseURL: '/api' });
+
+export function get(path: string) {
+  return api.get(path);
+}
+
+export function send(path: string, init: { method: string }) {
+  return api(`/v2${path}`, init);
+}
+
+export function item(id: string) {
+  return api.get(`/items/${id}`);
+}
+
+export function note(text: string) {
+  return log(text);
+}
+
+export function load() {
+  return get('/orders');
+}
+"#;
+    let f = facts_at(src, "src/http.ts");
+    let wrappers: Vec<String> =
+        f.wrappers.iter().map(|w| format!("{} via {} {:?} {:?}", w.id, w.via, w.prefix, w.method)).collect();
+    assert_eq!(
+        wrappers,
+        ["src/http.ts#get via src/http.ts#api \"\" Some(\"GET\")", "src/http.ts#send via src/http.ts#api \"/v2\" None"],
+        "a hole after `/` is a URL; `log` isn't a client"
+    );
+    let requests: Vec<String> =
+        f.requests.iter().map(|r| format!("{} {} {} via {}", r.from, r.method, r.url, r.via)).collect();
+    assert_eq!(
+        requests,
+        ["src/http.ts#item GET /items/{} via src/http.ts#api", "src/http.ts#load GET /orders via src/http.ts#get"]
+    );
+}

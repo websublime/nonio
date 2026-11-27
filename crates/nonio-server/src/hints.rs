@@ -9,7 +9,9 @@ use std::path::Path;
 use std::sync::LazyLock;
 
 use indexmap::{IndexMap, IndexSet};
-use nonio_facts::{client_sites, find_fetch_sites, match_route, wrapper_called, EntryKind, SourceFile, SymbolKind};
+use nonio_facts::{
+    client_sites, find_fetch_sites, match_route, wrapper_called, EntryKind, SourceFile, SymbolKind, Through,
+};
 use regex::Regex;
 
 use crate::changes::recent_changes;
@@ -143,11 +145,14 @@ pub fn head_start(root: &Path) -> HeadStart {
         .collect();
     let files: Vec<SourceFile<'_>> =
         sources.iter().map(|(f, s)| SourceFile { path: &f.path, source: s, symbols: &f.symbols }).collect();
-    let clients: HashMap<&str, &nonio_facts::ClientFact> =
-        facts.iter().flat_map(|f| &f.clients).map(|c| (c.id.as_str(), c)).collect();
+    let mut through: HashMap<&str, Through> = HashMap::new();
+    for f in &facts {
+        through.extend(f.clients.iter().map(|c| (c.id.as_str(), Through::Client(c.clone()))));
+        through.extend(f.wrappers.iter().map(|w| (w.id.as_str(), Through::Wrapper(w.clone()))));
+    }
     let mut sites = find_fetch_sites(&files);
     for f in &facts {
-        sites.extend(client_sites(f, |id| clients.get(id).map(|c| (*c).clone())));
+        sites.extend(client_sites(f, |id| through.get(id).cloned()));
     }
     let calls: HashMap<&str, &[nonio_facts::CallFact]> =
         facts.iter().map(|f| (f.path.as_str(), &f.calls[..])).collect();
