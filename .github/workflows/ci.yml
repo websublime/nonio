@@ -45,3 +45,23 @@ jobs:
       - run: cargo test --all --locked
         env:
           RUSTUP_TOOLCHAIN: "1.97"
+
+  viewer:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: viewer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: viewer/package-lock.json
+      # The viewer's tests read their maps through nonio itself (the viewer-maps example).
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build

@@ -1,0 +1,32 @@
+/* A wireframe: a page as regions in five fixed places, with the part a box is about marked. In a box's bubble it is laid
+   out at a page's width and scaled to fit (.wf-fit, FitWireframe in screen.tsx), like a thumbnail of the page. The
+   walkthrough bubble shows no picture. The element styles (.sk, .sk-button, …) are the sketch's, in styles.css. */
+/* `zoom` (not a transform) so the scaled page takes up only its scaled height. */
+/* Its width comes from the card, never from the page inside it (contain), so the scale can be worked out from it. */
+.wf-fit { width: 100%; min-width: 0; overflow: hidden; contain: inline-size; }
+.wf-fit-page { max-width: none; }
+.wf { display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1.5px solid var(--line-strong); border-radius: 10px; background: var(--paper); color: var(--ink); min-height: 200px; }
+.wf-mid { display: grid; gap: 6px; flex: 1; min-height: 0; }
+.wf-slot { display: flex; flex-direction: column; gap: 6px; min-width: 0; min-height: 0; }
+.wf-slot.wf-top, .wf-slot.wf-bottom { flex-direction: row; }
+.wf-region { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 7px 10px; border: 1px dashed var(--line-strong); border-radius: 7px; background: var(--surface); min-width: 0; }
+.wf-label { font-size: 10.5px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; flex: none; }
+/* Things in a region sit side by side and wrap, the way most bars and toolbars do, so a region is no taller than it needs. */
+.wf-els { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; min-width: 0; max-width: 100%; }
+.wf-els:empty { display: none; }
+.wf-region.wf-on { border: 1.5px solid var(--lamp); background: var(--lamp-soft); }
+.wf-region.wf-on .wf-label { color: var(--ink); }
+.wf .sk { font-size: 12.5px; }
+.wf .sk-heading { font-size: 13.5px; flex-basis: 100%; }
+.wf .sk-button { padding: 2px 10px; }
+.wf .sk-field { min-width: 0; }
+
+/* On a journey box: region names only, plus the marked element. */
+.thumb-wire { border: 0; background: transparent; }
+.wf.wf-small { height: 100%; min-height: 0; padding: 5px; gap: 4px; border-width: 1px; border-radius: 7px; overflow: hidden; }
+.wf-small .wf-mid, .wf-small .wf-slot { gap: 4px; }
+.wf-small .wf-region { padding: 3px 6px; gap: 3px; border-radius: 5px; justify-content: center; overflow: hidden; }
+.wf-small .wf-label { font-size: 8.5px; }
+.wf-small .sk { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; flex: none; }
+.wf-small .sk-button { padding: 0 6px; border-width: 1px; }
+.wf-small .sk-mark { outline-width: 1.5px; outline-offset: 1px; box-shadow: none; }
