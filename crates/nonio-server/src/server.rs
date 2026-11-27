@@ -6,8 +6,8 @@
 //! own chat (hosts that ask in the chat, see host.rs) can be about what the person is pointing at.
 //!
 //! Ported from `packages/server/src/server.ts` (MIT, Copyright (c) 2026 johnz4021); see NOTICE. What differs: the
-//! token header is `x-nonio-token`, maps live in `.nonio/` (D29), and the viewer is served from a folder until the
-//! binary embeds it (D09).
+//! token header is `x-nonio-token`, maps live in `.nonio/` (D29), and the viewer comes from a folder or from files the
+//! binary embeds (D09, see [`Viewer`]).
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
@@ -154,8 +154,8 @@ pub struct ServerOptions {
     pub port: u16,
     pub agent: Arc<dyn Agent>,
     pub token: Option<String>,
-    /// The built viewer's folder (with `index.html`). Without one, the page says the viewer isn't built.
-    pub viewer: Option<PathBuf>,
+    /// The built viewer. Without one, or one with no `index.html`, the page says the viewer isn't built.
+    pub viewer: Option<Viewer>,
     /// Stop on its own when nobody is looking: no tab open and no job running. Off unless set.
     pub auto_stop: Option<AutoStop>,
     /// Called after the server stopped itself.
@@ -273,7 +273,7 @@ struct Inner {
     store: Store,
     page: PageAgent,
     port: u16,
-    viewer: Option<PathBuf>,
+    viewer: Option<Viewer>,
     auto_stop: Option<AutoStop>,
     on_stop: Option<StopFn>,
     on_event: Option<EventFn>,
@@ -1271,6 +1271,43 @@ fn send_file(file: &Path, kind: &str) -> Result<Response, HttpError> {
     Ok(res)
 }
 
+/// Reads one of the built viewer's files, by its path inside the build (`index.html`, `assets/…`).
+pub type ViewerFiles = Arc<dyn Fn(&str) -> Option<std::borrow::Cow<'static, [u8]>> + Send + Sync>;
+
+/// Where the built viewer's files come from.
+#[derive(Clone)]
+pub enum Viewer {
+    /// A folder on disk, such as `viewer/dist` while working on the viewer.
+    Dir(PathBuf),
+    /// Files built into the binary.
+    Files(ViewerFiles),
+}
+
+impl Viewer {
+    fn read(&self, rel: &str) -> Option<Vec<u8>> {
+        match self {
+            Viewer::Dir(dir) => {
+                let file = dir.join(rel);
+                if file.is_file() {
+                    fs::read(file).ok()
+                } else {
+                    None
+                }
+            }
+            Viewer::Files(f) => f(rel).map(|b| b.into_owned()),
+        }
+    }
+}
+
+impl std::fmt::Debug for Viewer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Viewer::Dir(d) => f.debug_tuple("Dir").field(d).finish(),
+            Viewer::Files(_) => f.write_str("Files"),
+        }
+    }
+}
+
 const NOT_BUILT: &str = "<!doctype html><meta charset=\"utf-8\"><title>nonio</title><p style=\"font:16px system-ui;margin:40px\">The viewer isn't built yet. Run <code>npm run build</code> in the nonio repo's <code>viewer/</code>, then reload.</p>";
 
 fn content_type(file: &Path) -> &'static str {
@@ -1288,23 +1325,24 @@ fn content_type(file: &Path) -> &'static str {
 }
 
 fn serve_static(inner: &Inner, path: &str) -> Response {
-    let Some(dir) = inner.viewer.as_deref().filter(|d| d.join("index.html").is_file()) else {
+    let index = inner.viewer.as_ref().and_then(|v| v.read("index.html"));
+    let (Some(viewer), Some(index)) = (inner.viewer.as_ref(), index) else {
         let mut res = NOT_BUILT.into_response();
         res.headers_mut().insert(header::CONTENT_TYPE, HeaderValue::from_static("text/html; charset=utf-8"));
         return res;
     };
-    let index = dir.join("index.html");
     let rel = percent_encoding::percent_decode_str(path.trim_start_matches('/')).decode_utf8_lossy().to_string();
     let safe = rel.starts_with("assets/")
         && !rel.contains('\\')
         && rel.split('/').all(|s| !s.is_empty() && s != "." && s != "..");
-    let target = if safe && dir.join(&rel).is_file() { dir.join(&rel) } else { index.clone() };
-    let Ok(bytes) = fs::read(&target) else { return StatusCode::NOT_FOUND.into_response() };
+    let asset = if safe { viewer.read(&rel).map(|b| (b, rel.as_str())) } else { None };
+    let is_index = asset.is_none();
+    let (bytes, name) = asset.unwrap_or((index, "index.html"));
     let mut res = bytes.into_response();
     let h = res.headers_mut();
-    h.insert(header::CONTENT_TYPE, HeaderValue::from_static(content_type(&target)));
+    h.insert(header::CONTENT_TYPE, HeaderValue::from_static(content_type(Path::new(name))));
     h.insert(header::X_CONTENT_TYPE_OPTIONS, HeaderValue::from_static("nosniff"));
-    if target == index {
+    if is_index {
         h.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
         h.insert(
             header::CONTENT_SECURITY_POLICY,

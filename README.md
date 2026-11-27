@@ -4,7 +4,8 @@ Interactive maps of how code works, where every box and every arrow is checked a
 program before it is shown. Written in Rust, inspired by [illuminate](https://github.com/johnz4021/illuminate).
 
 Status: phase 3. The map format, the checker, the TS/JS extraction backend (oxc), the page server and the MCP channel
-and the web viewer are ported; embedding the viewer in the binary and `nonio mcp` come next.
+and the web viewer are ported, and the `nonio` binary runs it all as an MCP server (`nonio mcp`) with the viewer
+built in.
 
 ## Workspace
 
@@ -14,6 +15,7 @@ and the web viewer are ported; embedding the viewer in the binary and `nonio mcp
 | `nonio-core` | The map format (`parse_map`), the checker (`check`), map edits, the working-tree and git readers, screens and code views |
 | `nonio-scan` | The TS/JS extraction backend on oxc (`OxcExtractor`); see [its README](crates/nonio-scan/README.md) for where it differs from illuminate |
 | `nonio-server` | Host profiles (D07), the bridge that hands work to the host's model in tool results (D06), the request text and its parts, the map store in `.nonio/maps`, the output schemas and prompts (the same text as illuminate's, see [`tools/record-prompts`](tools/record-prompts/README.md)), the head start, the maker, the explainer (answers on a map), fixes (proposed, applied on approval, undone), the chat reply, and the page server on 127.0.0.1 (HTTP API and WebSocket, token, Host and Origin checks, stops itself when nobody is looking), and screens: what a repo can show, and captures from the installed Chrome over the DevTools protocol (`NONIO_CHROME` names one), and the MCP channel (rmcp) with the `nonio_*` tools, shaped per host: Claude Code listens on the map, Codex and Cursor ask from the chat |
+| `nonio-cli` | The `nonio` binary: `nonio mcp` runs the MCP channel over stdio, with `viewer/dist` built in (rust-embed); a build without the viewer still runs and its pages say how to build it |
 
 The checker knows facts only through the `Extractor` trait. `nonio-scan` implements it for TS/JS and Vue on oxc, and
 for Java, Kotlin and Python through the `code2graph` adapter and the field resolver (D14, D15).
@@ -30,6 +32,17 @@ npm test         # builds the viewer-maps example: the tests read their maps thr
 npm run build
 cargo run -p nonio-server --example preview   # the care-app map in the real server, no model; open the printed link
 ```
+
+## Running it
+
+```sh
+(cd viewer && npm ci && npm run build)   # first, so the binary carries the viewer
+cargo build --release -p nonio-cli
+claude mcp add --scope user nonio -- /path/to/target/release/nonio mcp
+```
+
+`--repo <dir>` picks the repo (default: the host's project folder, else the current one); `--port <n>` the page
+server's port (default 4317). `NONIO_HOST` forces a host profile (`claude-code`, `codex`, `cursor`).
 
 ## Tests
 

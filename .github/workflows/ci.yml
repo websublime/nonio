@@ -65,3 +65,8 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      # The binary built after the viewer carries it.
+      - run: cargo test -p nonio-cli --locked
+        working-directory: .
+        env:
+          NONIO_EXPECT_VIEWER: "1"

@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use nonio_core::parse_map;
 use nonio_server::bridge::{Agent, AgentRequest, AgentResult, BoxFuture};
-use nonio_server::server::{start_server, ServerOptions};
+use nonio_server::server::{start_server, ServerOptions, Viewer};
 use nonio_server::store::{MapMeta, Store, StoredMap};
 
 struct Nobody;
@@ -56,7 +56,7 @@ async fn main() {
 
     let mut o = ServerOptions::new(&root, Arc::new(Nobody));
     o.port = std::env::var("PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(0);
-    o.viewer = Some(here.join("../../viewer/dist"));
+    o.viewer = Some(Viewer::Dir(here.join("../../viewer/dist")));
     let server = start_server(o).await.unwrap();
     println!("{}", server.page_url(Some("patient-converts")));
     // Runs until Ctrl+C, or until the last tab closes and the server stops itself.
