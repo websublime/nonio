@@ -5,7 +5,9 @@
 //! Parts are ported from `@illuminate/server` (MIT, Copyright (c) 2026 johnz4021); see NOTICE.
 
 pub mod bridge;
+pub mod browser;
 pub mod changes;
+pub mod channel;
 pub mod explainer;
 pub mod fixes;
 pub mod hints;

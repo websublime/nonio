@@ -28,8 +28,10 @@ url = "2"
 tokio-tungstenite = "0.29"
 base64 = "0.22"
 tempfile.workspace = true
+rmcp = { version = "3.12", features = ["server", "transport-io"] }
 
 [dev-dependencies]
 tempfile.workspace = true
 pretty_assertions.workspace = true
 tokio = { version = "1", features = ["sync", "time", "rt", "macros", "test-util"] }
+rmcp = { version = "3.12", features = ["client"] }

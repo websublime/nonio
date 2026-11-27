@@ -50,6 +50,13 @@ Carried over from illuminate (read at commit 7a88df6, 2026-11-26):
   packages/server/src/screens.ts (the in-page reader script is illuminate's).
 - crates/nonio-server/tests/{server,offers,selection,stop}.rs: ported from
   packages/server/test/{server,offers,selection,stop}.test.ts.
+- crates/nonio-server/tests/screens.rs: ported from
+  packages/server/test/screens.test.ts.
+- crates/nonio-server/src/{channel,browser}.rs: ported from
+  packages/server/src/{channel,browser}.ts (the MCP channel and its tools,
+  renamed nonio_*).
+- crates/nonio-server/tests/channel.rs: ported from
+  packages/server/test/channel.test.ts.
 - tools/record-prompts/*.ts: call illuminate's prompt and schema modules.
 
 The Vue template lowering in crates/nonio-scan/src/vue.rs is ported from
