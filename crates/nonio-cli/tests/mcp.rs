@@ -72,3 +72,41 @@ fn runs_as_an_mcp_server_over_stdio_and_serves_the_viewer_built_in() {
     assert!(status.success(), "{status}");
     assert!(TcpStream::connect(url.strip_prefix("http://").unwrap().split('/').next().unwrap()).is_err());
 }
+
+/// A plugin's server starts in the plugin's own folder (Agent Plugins 1.0.0 §7.2.1), which is not the person's
+/// project: there, a call has to name the repo.
+#[test]
+fn started_in_its_plugin_folder_it_asks_for_the_repo() {
+    let plugin = tempfile::tempdir().unwrap();
+    let mut child = Command::new(env!("CARGO_BIN_EXE_nonio"))
+        .args(["mcp", "--port", "0"])
+        .current_dir(plugin.path())
+        .env("PLUGIN_ROOT", plugin.path())
+        .env_remove("CLAUDE_PROJECT_DIR")
+        .env_remove("NONIO_HOST")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::inherit())
+        .spawn()
+        .unwrap();
+    let mut stdin = child.stdin.take().unwrap();
+    let mut stdout = BufReader::new(child.stdout.take().unwrap());
+    let mut send = |v: Value| writeln!(stdin, "{v}").unwrap();
+    let mut read = || -> Value {
+        let mut line = String::new();
+        stdout.read_line(&mut line).unwrap();
+        serde_json::from_str(&line).unwrap_or_else(|e| panic!("{e}: {line:?}"))
+    };
+    send(json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
+        "protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": { "name": "some-agent", "version": "1" } } }));
+    read();
+    send(json!({ "jsonrpc": "2.0", "method": "notifications/initialized" }));
+    send(
+        json!({ "jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": { "name": "nonio_open", "arguments": {} } }),
+    );
+    let r = read();
+    assert_eq!(r["result"]["isError"], true, "{r}");
+    assert!(r["result"]["content"][0]["text"].as_str().unwrap().contains("Pass `repo`"), "{r}");
+    drop(stdin);
+    assert!(child.wait().unwrap().success());
+}

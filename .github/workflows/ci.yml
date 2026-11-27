@@ -70,3 +70,19 @@ jobs:
         working-directory: .
         env:
           NONIO_EXPECT_VIEWER: "1"
+
+  plugin:
+    runs-on: ubuntu-latest
+    env:
+      # Agent Plugins 1.0.0's schemas, from the spec repo at a fixed commit (Apache-2.0; not copied into this repo).
+      SPEC: https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/6395e8906b30e2f333b792bfaa981d790993d56f/schemas/1.0.0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: |
+          curl -fsSL "$SPEC/plugin.schema.json" -o "$RUNNER_TEMP/plugin.schema.json"
+          curl -fsSL "$SPEC/mcp.schema.json" -o "$RUNNER_TEMP/mcp.schema.json"
+      - run: npx -y ajv-cli@5.0.0 validate --spec=draft2020 --strict=false -s "$RUNNER_TEMP/plugin.schema.json" -d plugin/plugin.json
+      - run: npx -y ajv-cli@5.0.0 validate --spec=draft2020 --strict=false -s "$RUNNER_TEMP/mcp.schema.json" -d plugin/mcp.json

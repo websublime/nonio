@@ -1,6 +1,7 @@
 //! The nonio command.
 //!   nonio mcp      run as an MCP server over stdio (the agent starts it; D29)
-//! Options: --repo <dir> (default: the host's project folder, else the current one)  --port <n> (default 4317)
+//! Options: --repo <dir> (default: the host's project folder, else the current one unless it is the plugin's own)
+//!          --port <n> (default 4317)
 //!
 //! After `packages/server/src/cli.ts` and `runChannel` in `packages/server/src/channel.ts` (MIT, Copyright (c) 2026
 //! johnz4021); see NOTICE. nonio has only the MCP command: the maps are made by the agent's own model.
@@ -100,12 +101,12 @@ fn run_mcp(args: Args) -> ExitCode {
     };
     rt.block_on(async move {
         // stdout carries the protocol; nothing else may be written there.
-        let root = args
-            .repo
-            .or_else(|| std::env::var_os("CLAUDE_PROJECT_DIR").map(PathBuf::from))
-            .or_else(|| std::env::current_dir().ok())
-            .unwrap_or_else(|| PathBuf::from("."));
+        let given = args.repo.or_else(|| std::env::var_os("CLAUDE_PROJECT_DIR").map(PathBuf::from));
+        let cwd = std::env::current_dir().ok();
+        let in_plugin = given.is_none() && cwd.as_deref().is_some_and(is_plugin_root);
+        let root = given.or(cwd).unwrap_or_else(|| PathBuf::from("."));
         let mut o = ChannelOptions::new(root);
+        o.root_is_not_a_repo = in_plugin;
         o.port = args.port;
         o.viewer = Some(viewer());
         let channel = Channel::new(o);
@@ -124,6 +125,16 @@ fn run_mcp(args: Args) -> ExitCode {
         channel.close().await;
         ExitCode::SUCCESS
     })
+}
+
+/// The variables a host sets to the folder of the plugin it started nonio from: Agent Plugins' own, and the names
+/// Cursor and Claude Code use. Agent Plugins starts a plugin's server in that folder unless told otherwise, and it is
+/// not the person's project.
+const PLUGIN_ROOT_VARS: [&str; 3] = ["PLUGIN_ROOT", "CURSOR_PLUGIN_ROOT", "CLAUDE_PLUGIN_ROOT"];
+
+fn is_plugin_root(dir: &std::path::Path) -> bool {
+    let Ok(dir) = std::fs::canonicalize(dir) else { return false };
+    PLUGIN_ROOT_VARS.iter().filter_map(std::env::var_os).any(|v| std::fs::canonicalize(v).is_ok_and(|p| p == dir))
 }
 
 async fn stop_signal() {

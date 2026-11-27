@@ -64,6 +64,9 @@ Carried over from illuminate (read at commit 7a88df6, 2026-11-26):
   in packages/server/src/channel.ts.
 - crates/nonio-server/examples/preview.rs: after packages/server/scripts/preview.ts.
 - tools/record-prompts/*.ts: call illuminate's prompt and schema modules.
+- plugin/skills/nonio/SKILL.md: adapted from plugin/skills/illuminate/SKILL.md;
+  plugin/ and .cursor-plugin/marketplace.json follow the layout of plugin/ and
+  .claude-plugin/marketplace.json.
 
 The Vue template lowering in crates/nonio-scan/src/vue.rs is ported from
 vue_oxlint_jsx 0.15.0 (vue-oxlint-toolkit,

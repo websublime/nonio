@@ -529,3 +529,22 @@ async fn puts_a_client_it_does_not_know_on_the_base_protocol_and_opens_the_map_i
     assert!(r.text.contains("call nonio_ask"), "{}", r.text);
     s.close().await;
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn started_in_a_plugin_s_folder_it_maps_only_the_repo_a_call_names() {
+    let plugin = tempfile::tempdir().unwrap();
+    let dir = copy_care_app();
+    let (opened, open) = opened();
+    let mut o = options(plugin.path());
+    o.open = Some(open);
+    o.root_is_not_a_repo = true;
+    let s = Session::start(o, "some-other-agent").await;
+    let r = s.call("nonio_open", json!({})).await;
+    assert!(r.is_error, "{}", r.text);
+    assert!(r.text.contains("Pass `repo`"), "{}", r.text);
+    assert!(opened.lock().unwrap().is_empty());
+    let r = s.call("nonio_open", json!({ "repo": dir.path().to_str().unwrap() })).await;
+    assert!(!r.is_error, "{}", r.text);
+    assert_eq!(opened.lock().unwrap().len(), 1);
+    s.close().await;
+}

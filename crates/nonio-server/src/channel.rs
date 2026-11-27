@@ -81,6 +81,9 @@ pub struct ChannelOptions {
     pub viewer: Option<crate::server::Viewer>,
     /// The profile to use whatever the client says (`NONIO_HOST`).
     pub forced_host: Option<String>,
+    /// `root` is only where the host started nonio, not a project (a plugin's own folder): a call that names no
+    /// `repo` is refused instead of mapping that folder.
+    pub root_is_not_a_repo: bool,
 }
 
 impl ChannelOptions {
@@ -98,6 +101,7 @@ impl ChannelOptions {
             port: PORT,
             viewer: None,
             forced_host: std::env::var(HOST_ENV).ok(),
+            root_is_not_a_repo: false,
         }
     }
 }
@@ -434,6 +438,9 @@ impl Channel {
     fn root_of(&self, repo: Option<&str>) -> Result<PathBuf, String> {
         let dir = match repo.map(str::trim).filter(|r| !r.is_empty()) {
             Some(r) => self.inner.o.root.join(r),
+            None if self.inner.o.root_is_not_a_repo => {
+                return Err("Pass `repo`: the absolute path of the project you are working in.".to_string())
+            }
             None => self.inner.o.root.clone(),
         };
         if !dir.is_dir() {
