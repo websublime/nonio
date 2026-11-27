@@ -530,3 +530,47 @@ fn nuxt_server_routes_and_pages_below_the_nuxt_config() {
     assert_eq!(page.entries.iter().map(|e| e.id.as_str()).collect::<Vec<_>>(), ["entry:page:/orders/{}"]);
     assert!(facts_at(src, "web/server/api/orders/[id].get.ts").routes.is_empty(), "no nuxt.config, no routes");
 }
+
+#[test]
+fn http_client_libraries_and_their_instances() {
+    let src = r#"import ky from 'ky';
+import got from 'got';
+
+export const api = ky.create({ prefixUrl: 'https://shop.test/api/' });
+const legacy = got.extend({ prefixUrl: '/legacy', headers: {} });
+const nuxt = $fetch.create({ ...defaults });
+
+export async function load(id: string, client: typeof api) {
+  await api.get('orders');
+  await api(`orders/${id}`, { method: 'delete' });
+  await legacy.post('/stock');
+  await ky.put('/api/direct');
+  await client.get('/not-resolved');
+  await nuxt('/api/x');
+}
+"#;
+    let f = facts_at(src, "src/http.ts");
+    let clients: Vec<String> =
+        f.clients.iter().map(|c| format!("{} {} {:?}", c.id, c.lib, c.prefix.as_deref())).collect();
+    assert_eq!(
+        clients,
+        [
+            "src/http.ts#api ky Some(\"https://shop.test/api/\")",
+            "src/http.ts#legacy got Some(\"/legacy\")",
+            "src/http.ts#nuxt ofetch None",
+        ]
+    );
+    let requests: Vec<String> =
+        f.requests.iter().map(|r| format!("{} {} {} {} via {}", r.from, r.method, r.url, r.exact, r.via)).collect();
+    assert_eq!(
+        requests,
+        [
+            "src/http.ts#load GET /orders true via src/http.ts#api",
+            "src/http.ts#load DELETE /orders/{} false via src/http.ts#api",
+            "src/http.ts#load POST /stock true via src/http.ts#legacy",
+            "src/http.ts#load PUT /api/direct true via vendor:ky",
+            "src/http.ts#load GET /api/x true via src/http.ts#nuxt",
+        ],
+        "`client` is a parameter: nothing to resolve it to"
+    );
+}

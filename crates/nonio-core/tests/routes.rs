@@ -41,7 +41,7 @@ fn component_to_controller_arrows_are_confirmed_by_facts() {
     let r = report();
     let got: HashMap<&str, (Status, Option<Proof>, Vec<String>)> =
         r.edges.iter().map(|(id, c)| (id.as_str(), (c.status, c.proof, c.reasons.clone()))).collect();
-    for id in ["vue-java", "tsx-kotlin", "nuxt", "next", "through-client", "four-hops", "bff"] {
+    for id in ["vue-java", "tsx-kotlin", "nuxt", "next", "through-client", "four-hops", "bff", "client-instance"] {
         assert_eq!(got[id], (Status::Confirmed, Some(Proof::Fact), vec![]), "{id}");
     }
     assert!(r.nodes.values().all(|n| n.status == Status::Confirmed), "{:?}", r.nodes);
@@ -105,4 +105,15 @@ fn another_component_or_entry_is_a_boundary_even_when_it_is_not_a_box() {
 fn without_the_box_in_between_the_chain_is_followed_to_its_end() {
     // Far.vue#far → h1 → h2 → h3 → h4 → h5: five calls.
     assert_eq!(without(&["h1"]).edges["through-a-box"].status, Status::Confirmed);
+}
+
+#[test]
+fn http_clients_are_linked_by_binding_not_by_name() {
+    let r = report();
+    // `api` is imported from http.ts, where it is `axios.create({ baseURL: '/api' })`: GET /api/invoices.
+    assert_eq!(r.edges["client-instance"].status, Status::Confirmed);
+    // `external`'s base URL comes from the environment: the request proves nothing.
+    assert_eq!(r.edges["unknown-prefix"].status, Status::Unconfirmed);
+    // A local object named `axios` is not the library.
+    assert_eq!(r.edges["not-axios"].status, Status::Unconfirmed);
 }

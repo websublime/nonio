@@ -11,8 +11,8 @@ use std::rc::Rc;
 
 use indexmap::IndexMap;
 use nonio_facts::{
-    find_fetch_sites, match_route, matches_any, settle_calls, squash, CallFact, EntryKind, Extractor, FileFacts,
-    RepoView, SourceFile, SymbolFact,
+    client_sites, find_fetch_sites, match_route, matches_any, settle_calls, squash, CallFact, EntryKind, Extractor,
+    FileFacts, RepoView, SourceFile, SymbolFact,
 };
 use regex::Regex;
 use serde::Serialize;
@@ -865,7 +865,10 @@ fn requests_route(
         neighbours.iter().filter_map(|p| Some((p.clone(), side.repo.text(p)?, side.facts.get(p)?))).collect();
     let sources: Vec<SourceFile<'_>> =
         loaded.iter().map(|(path, source, f)| SourceFile { path, source, symbols: &f.symbols }).collect();
-    find_fetch_sites(&sources).iter().any(|site| {
+    let client = |id: &str| side.facts.get(file_of(id))?.clients.iter().find(|c| c.id == id).cloned();
+    let mut sites = find_fetch_sites(&sources);
+    sites.extend(client_sites(&facts, client));
+    sites.iter().any(|site| {
         if site.file != file || symbol.is_some_and(|s| !within(&site.from, s)) {
             return false;
         }

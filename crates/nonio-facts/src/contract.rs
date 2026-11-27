@@ -135,6 +135,38 @@ pub struct FileFacts {
     pub calls: Vec<CallFact>,
     pub routes: Vec<RouteFact>,
     pub entries: Vec<EntryFact>,
+    /// HTTP clients this file creates with a known library (`axios.create`, `ky.create`, …).
+    #[serde(default)]
+    pub clients: Vec<ClientFact>,
+    /// Requests sent through an HTTP client library or one of its instances, found by resolving the callee.
+    #[serde(default)]
+    pub requests: Vec<RequestFact>,
+}
+
+/// An HTTP client made from a library's factory and bound to a module-scope name: `export const api =
+/// axios.create({ baseURL: '/api' })` is `{ id: "<file>#api", lib: "axios", prefix: Some("/api") }`. `prefix` is
+/// `None` when the base URL isn't literal text (an env variable, a call): requests through it then prove nothing.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClientFact {
+    pub id: String,
+    pub lib: String,
+    pub prefix: Option<String>,
+}
+
+/// A request sent with a URL literal through a client library (`axios.post('/x')`) or through an instance of one
+/// (`api.get('/x')`). The callee is resolved by scope and import, never by name (D16).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RequestFact {
+    /// Enclosing symbol id, or the file path for top-level code.
+    pub from: String,
+    /// Upper case.
+    pub method: String,
+    /// The URL written at the call: path only, query dropped, `${…}` → `{}`.
+    pub url: String,
+    /// The URL at the call has no template holes.
+    pub exact: bool,
+    /// `vendor:<lib>` for a call on the library itself, or the id of the [`ClientFact`] it goes through.
+    pub via: String,
 }
 
 /// What an extractor may ask about the version of the repo a file is read from (the working tree, or a commit).
@@ -184,6 +216,8 @@ impl FileFacts {
             calls: Vec::new(),
             routes: Vec::new(),
             entries: Vec::new(),
+            clients: Vec::new(),
+            requests: Vec::new(),
         }
     }
 }

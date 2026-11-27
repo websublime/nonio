@@ -15,6 +15,7 @@
 //! Go gets no facts yet.
 
 mod adapters;
+mod clients;
 mod entries;
 mod extract;
 mod fallback;

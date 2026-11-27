@@ -115,7 +115,7 @@
       "evidence": [
         {
           "file": "backend/src/main/kotlin/com/shop/billing/InvoiceController.kt",
-          "line": 12,
+          "line": 16,
           "text": "fun pay(@PathVariable id: Long)"
         }
       ]
@@ -198,6 +198,61 @@
           "file": "web/src/components/Shell.tsx",
           "line": 4,
           "text": "return PayButton({ invoice: 1 })"
+        }
+      ]
+    },
+    {
+      "id": "ilist",
+      "area": "api",
+      "name": "List invoices",
+      "symbol": "backend/src/main/kotlin/com/shop/billing/InvoiceController.kt#InvoiceController.list",
+      "evidence": [
+        {
+          "file": "backend/src/main/kotlin/com/shop/billing/InvoiceController.kt",
+          "line": 13,
+          "text": "fun list()"
+        }
+      ]
+    },
+    {
+      "id": "inv",
+      "area": "ui",
+      "kind": "entry",
+      "name": "Invoices load",
+      "symbol": "web/src/components/Invoices.vue#load",
+      "evidence": [
+        {
+          "file": "web/src/components/Invoices.vue",
+          "line": 5,
+          "text": "api.get('/invoices')"
+        }
+      ]
+    },
+    {
+      "id": "mirror",
+      "area": "ui",
+      "kind": "entry",
+      "name": "Invoices mirror",
+      "symbol": "web/src/components/Invoices.vue#mirror",
+      "evidence": [
+        {
+          "file": "web/src/components/Invoices.vue",
+          "line": 9,
+          "text": "external.get('/invoices')"
+        }
+      ]
+    },
+    {
+      "id": "fake",
+      "area": "ui",
+      "kind": "entry",
+      "name": "Fake pay",
+      "symbol": "web/src/components/FakePay.tsx#FakePay",
+      "evidence": [
+        {
+          "file": "web/src/components/FakePay.tsx",
+          "line": 4,
+          "text": "axios.post('/api/invoices/1/pay')"
         }
       ]
     }
@@ -354,6 +409,48 @@
           "file": "web/src/components/Shell.tsx",
           "line": 4,
           "text": "return PayButton({ invoice: 1 })"
+        }
+      ]
+    },
+    {
+      "id": "client-instance",
+      "from": "inv",
+      "to": "ilist",
+      "kind": "request",
+      "label": "loads",
+      "evidence": [
+        {
+          "file": "web/src/components/Invoices.vue",
+          "line": 5,
+          "text": "api.get('/invoices')"
+        }
+      ]
+    },
+    {
+      "id": "unknown-prefix",
+      "from": "mirror",
+      "to": "ilist",
+      "kind": "request",
+      "label": "loads",
+      "evidence": [
+        {
+          "file": "web/src/components/Invoices.vue",
+          "line": 9,
+          "text": "external.get('/invoices')"
+        }
+      ]
+    },
+    {
+      "id": "not-axios",
+      "from": "fake",
+      "to": "ipay",
+      "kind": "request",
+      "label": "pays",
+      "evidence": [
+        {
+          "file": "web/src/components/FakePay.tsx",
+          "line": 4,
+          "text": "axios.post('/api/invoices/1/pay')"
         }
       ]
     }
