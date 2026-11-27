@@ -150,6 +150,12 @@ fn namespace_len(id: &SymbolId) -> usize {
 static WILDCARD: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?m)^\s*import\s+([A-Za-z_][\w]*(?:\.[A-Za-z_][\w]*)*)\.\*\s*;?\s*$").unwrap());
 /// A Kotlin constructor property just before its type: `private val mailer: ` in `class S(private val mailer: M)`.
+/// The text just before a call's name in `this.repo.save()`, which Java gives without its receiver.
+static THIS_FIELD: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\bthis\s*\.\s*([A-Za-z_]\w*)\s*\.\s*$").unwrap());
+/// The text just before a class name in `new Order(…)`.
+static NEW: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\bnew\s+$").unwrap());
+/// A local bound once to a constructor call: `repo = UserRepo(` (Python gives such a local no type).
+static CONSTRUCTED: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[A-Za-z_]\w*\s*=\s*([A-Za-z_]\w*)\s*\(").unwrap());
 static CTOR_PROPERTY: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\b(?:val|var)\s+([A-Za-z_]\w*)\s*:\s*$").unwrap());
 
@@ -165,6 +171,8 @@ struct Index<'g> {
     types_by_names: HashMap<Vec<String>, &'g SymbolId>,
     /// `(package namespaces, name)` → the top-level types with that name in that package.
     types_by_package: HashMap<(Vec<String>, String), Vec<&'g SymbolId>>,
+    /// `(owner type's path names, name)` → the methods of that name the type declares.
+    methods: HashMap<(Vec<String>, String), Vec<&'g SymbolId>>,
     /// Edges by `(file, byte, role)` of the reference they resolve.
     edges_at: HashMap<(&'g str, usize, RefRole), Vec<&'g Edge>>,
     /// A type → the types it extends or implements, resolved where they are written.
@@ -180,6 +188,7 @@ impl<'g> Index<'g> {
             defined_in: HashMap::new(),
             types_by_names: HashMap::new(),
             types_by_package: HashMap::new(),
+            methods: HashMap::new(),
             edges_at: HashMap::new(),
             supers: HashMap::new(),
         };
@@ -200,6 +209,13 @@ impl<'g> Index<'g> {
                 let name = if *n == 1 { qual } else { format!("{qual}~{n}") };
                 ix.ids.insert((f.file.as_str(), &s.id), format!("{}#{name}", f.file));
                 ix.defined_in.entry(&s.id).or_default().push(s);
+                if matches!(s.kind, GraphKind::Method | GraphKind::Function) && all.len() > ns + 1 {
+                    let list =
+                        ix.methods.entry((all[..all.len() - 1].to_vec(), all[all.len() - 1].clone())).or_default();
+                    if !list.contains(&&s.id) {
+                        list.push(&s.id);
+                    }
+                }
                 if is_type(s.kind) {
                     ix.types_by_names.insert(all.clone(), &s.id);
                     if all.len() == ns + 1 {
@@ -452,6 +468,117 @@ impl<'g> Index<'g> {
         self.owner(&e.to).is_some_and(|o| self.types_around(f, r.occ.byte).contains(o))
     }
 
+    // ---- typed receivers and constructors (D15): what code2graph leaves unresolved, read from declared types
+
+    /// The callee of a call code2graph gave no kept edge for, when the receiver's type is written in the code: a
+    /// field or Kotlin constructor property of an enclosing type, a local or parameter with a declared type (or a
+    /// local bound once to a constructor call), or the class of a Java `new`. The type name is resolved where it is
+    /// written ([`Self::type_named`]) and the method looked up on that type and what it extends; any doubt gives
+    /// nothing.
+    fn typed_call(&self, f: &'g code2graph::FileFacts, r: &Reference) -> Option<&'g SymbolId> {
+        let at = r.occ.byte;
+        let text = self.texts.get(f.file.as_str()).copied().unwrap_or("");
+        let before = tail(text, at, 160);
+        if r.qualifier.is_none() && NEW.is_match(before) {
+            return self.type_named(f, &r.name);
+        }
+        let ty = self.receiver_type(f, r, before)?;
+        self.method_of(ty, &r.name)
+    }
+
+    fn receiver_type(&self, f: &'g code2graph::FileFacts, r: &Reference, before: &str) -> Option<&'g SymbolId> {
+        let at = r.occ.byte;
+        let (name, field_only) = match r.qualifier.as_deref() {
+            Some(q) => match q.strip_prefix("this.") {
+                Some(field) => (field.to_string(), true),
+                None => (q.to_string(), false),
+            },
+            None => (THIS_FIELD.captures(before)?[1].to_string(), true),
+        };
+        if name.contains('.') || matches!(name.as_str(), "this" | "self" | "super") {
+            return None;
+        }
+        if !field_only {
+            match self.binding(f, &name, at, r.scope) {
+                Some(b) if matches!(b.kind, BindingKind::Local | BindingKind::Param) => return self.local_type(f, b),
+                Some(b) if b.kind == BindingKind::Definition => {
+                    let BindingTarget::Def(id) = &b.target else {
+                        return None;
+                    };
+                    let owner = self.owner(id)?;
+                    return self.enclosing_types(f, at).contains(&owner).then(|| self.field_type(f, owner, &name))?;
+                }
+                Some(_) => return None,
+                None => {}
+            }
+        }
+        for t in self.enclosing_types(f, at) {
+            if let Some(ty) = self.field_type(f, t, &name) {
+                return Some(ty);
+            }
+        }
+        let written = self.ctor_properties(f, at).remove(&name)?;
+        self.type_named(f, &written)
+    }
+
+    fn local_type(&self, f: &'g code2graph::FileFacts, b: &Binding) -> Option<&'g SymbolId> {
+        if let Some(t) = b.type_name.as_deref() {
+            return self.type_named(f, t);
+        }
+        let once = f.bindings.iter().filter(|x| x.scope == b.scope && x.name == b.name).count() == 1;
+        let text = self.texts.get(f.file.as_str()).copied().unwrap_or("");
+        let class = CONSTRUCTED.captures(text.get(b.intro..)?)?;
+        if !once || b.kind != BindingKind::Local {
+            return None;
+        }
+        self.type_named(f, &class[1])
+    }
+
+    /// The declared type of field `name` of `owner`, from the one type written in the field's declaration.
+    fn field_type(&self, f: &'g code2graph::FileFacts, owner: &SymbolId, name: &str) -> Option<&'g SymbolId> {
+        let mut path = names(owner);
+        path.push(name.to_string());
+        let field = f.symbols.iter().find(|s| {
+            matches!(s.kind, GraphKind::Field | GraphKind::Static | GraphKind::Const) && names(&s.id) == path
+        })?;
+        let mut written = f.references.iter().filter(|r| {
+            r.role == RefRole::TypeRef
+                && r.type_ref_ctx == Some(TypeRefContext::Field)
+                && field.span.start <= r.occ.byte
+                && r.occ.byte < field.span.end
+        });
+        match (written.next(), written.next()) {
+            (Some(t), None) if t.qualifier.is_none() => self.type_named(f, &t.name),
+            _ => None,
+        }
+    }
+
+    /// The one method `name` of `ty`, or of the nearest types it extends that declare one.
+    fn method_of(&self, ty: &'g SymbolId, name: &str) -> Option<&'g SymbolId> {
+        let mut level = vec![ty];
+        let mut seen: HashSet<&SymbolId> = HashSet::new();
+        while !level.is_empty() {
+            let mut found: Vec<&SymbolId> = Vec::new();
+            let mut next = Vec::new();
+            for t in level {
+                if !seen.insert(t) {
+                    continue;
+                }
+                if let Some(m) = self.methods.get(&(names(t), name.to_string())) {
+                    found.extend(m.iter().copied());
+                }
+                next.extend(self.supers.get(t).into_iter().flatten().copied());
+            }
+            found.dedup();
+            match found.as_slice() {
+                [one] => return Some(one),
+                [] => level = next,
+                _ => return None,
+            }
+        }
+        None
+    }
+
     fn target(&self, id: &SymbolId) -> Option<String> {
         match self.defined_in.get(id)?.as_slice() {
             [one] => self.ids.get(&(one.file.as_str(), id)).cloned(),
@@ -571,19 +698,37 @@ impl<'g> Index<'g> {
             }
             // One call site stands for one callee; two different ones mean nothing here is sure.
             let targets: HashSet<&SymbolId> = kept.iter().map(|(e, _)| &e.to).collect();
-            if targets.len() != 1 {
-                continue;
-            }
-            let (e, confidence) = kept[0];
-            let Some(to) = self.target(&e.to) else {
-                continue;
+            let (to, from, confidence) = match targets.len() {
+                1 => {
+                    let (e, confidence) = kept[0];
+                    (self.target(&e.to), self.caller(f, e), confidence)
+                }
+                0 => match self.typed_call(f, r) {
+                    Some(to) => (self.target(to), self.caller_at(f, r.occ.byte), CallConfidence::Typed),
+                    None => continue,
+                },
+                _ => continue,
             };
-            let Some(from) = self.caller(f, e) else {
+            let (Some(to), Some(from)) = (to, from) else {
                 continue;
             };
             push_call(&mut out, from, to, confidence);
         }
         out
+    }
+
+    /// The innermost symbol around `at`, or the file for top-level code.
+    fn caller_at(&self, f: &'g code2graph::FileFacts, at: usize) -> Option<String> {
+        let file = f.file.as_str();
+        let inner = f
+            .symbols
+            .iter()
+            .filter(|s| s.kind != GraphKind::Module && s.span.start <= at && at < s.span.end)
+            .min_by_key(|s| s.span.end - s.span.start);
+        match inner {
+            Some(s) => self.ids.get(&(file, &s.id)).cloned(),
+            None => Some(file.to_string()),
+        }
     }
 
     fn caller(&self, f: &'g code2graph::FileFacts, e: &Edge) -> Option<String> {
@@ -593,6 +738,16 @@ impl<'g> Index<'g> {
             None => f.symbols.iter().any(|s| s.kind == GraphKind::Module && s.id == e.from).then(|| file.to_string()),
         }
     }
+}
+
+/// Up to `max` bytes of `text` before `at`, cut at a char boundary.
+fn tail(text: &str, at: usize, max: usize) -> &str {
+    let at = at.min(text.len());
+    let mut start = at.saturating_sub(max);
+    while !text.is_char_boundary(start) {
+        start += 1;
+    }
+    &text[start..at]
 }
 
 fn push_call(out: &mut Vec<CallFact>, from: String, to: String, confidence: CallConfidence) {
@@ -611,7 +766,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn ctor_property_pattern() {
+    fn receiver_patterns() {
+        assert_eq!(&THIS_FIELD.captures("  this.repo.").unwrap()[1], "repo");
+        assert!(THIS_FIELD.captures("repo.").is_none());
+        assert!(NEW.is_match("return new "));
+        assert_eq!(&CONSTRUCTED.captures("repo = UserRepo()\n").unwrap()[1], "UserRepo");
+        assert_eq!(tail("aé", 3, 1), "");
         assert_eq!(&CTOR_PROPERTY.captures("class S(private val mailer: ").unwrap()[1], "mailer");
         assert!(CTOR_PROPERTY.captures("class S(mailer: ").is_none());
     }

@@ -9,8 +9,9 @@
 //! lowered to JSX in the same program (see [`parse_sfc`]); template calls belong to the symbol `<path>#<template>`.
 //!
 //! Java, Kotlin and Python are read with `code2graph`'s precise tier behind [`GraphExtractor`] (D14), whose edges
-//! are checked again so none rests on a name match (D16). [`Scanner`] sends each file to its backend. Go gets no
-//! facts yet.
+//! are checked again so none rests on a name match (D16), and whose gaps on typed receivers (fields, constructor
+//! properties, typed locals) are filled from the declared types (D15). [`Scanner`] sends each file to its backend.
+//! Go gets no facts yet.
 
 mod adapters;
 mod entries;
