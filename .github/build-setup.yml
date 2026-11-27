@@ -1,0 +1,9 @@
+# Steps dist runs before each build: the binary carries the viewer (rust-embed reads viewer/dist at compile time).
+- name: Install Node
+  uses: actions/setup-node@v4
+  with:
+    node-version: 22
+- name: Build the viewer
+  shell: bash
+  working-directory: viewer
+  run: npm ci && npm run build
