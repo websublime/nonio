@@ -52,8 +52,11 @@ pub const DEFAULT_IGNORE: &[&str] = &[
 /// A file's text, or why it can't be read.
 pub type ReadResult = Result<Rc<str>, String>;
 
+/// Whether a repo-relative path names a secret file. Matched without regard to case, since `.ENV` is `.env` on a
+/// case-insensitive file system.
 pub fn is_secret_path(rel: &str) -> bool {
-    matches_any(SECRET_GLOBS, rel) || matches_any(SECRET_GLOBS, &format!("/{rel}"))
+    let rel = rel.to_lowercase();
+    matches_any(SECRET_GLOBS, &rel) || matches_any(SECRET_GLOBS, &format!("/{rel}"))
 }
 
 /// One version of the repo's code, read under the rules above.
@@ -84,6 +87,18 @@ impl RepoReader {
         Ok(Self { root: fs::canonicalize(root)?, cache: RefCell::default() })
     }
 
+    /// Where `rel` really is, symlinks followed, as an absolute path and relative to the root; `Err` when it doesn't
+    /// exist or leads out of the repo.
+    fn resolve(&self, rel: &str) -> Result<(PathBuf, String), String> {
+        if !is_safe_relative_path(rel) {
+            return Err("path is outside the repo".into());
+        }
+        let real = fs::canonicalize(self.root.join(rel)).map_err(|_| "file not found".to_string())?;
+        let inner = real.strip_prefix(&self.root).map_err(|_| "path is outside the repo".to_string())?;
+        let inner = inner.components().map(|c| c.as_os_str().to_string_lossy()).collect::<Vec<_>>().join("/");
+        Ok((real, inner))
+    }
+
     fn read_uncached(&self, rel: &str) -> ReadResult {
         if !is_safe_relative_path(rel) {
             return Err("path is outside the repo".into());
@@ -91,11 +106,10 @@ impl RepoReader {
         if is_secret_path(rel) {
             return Err("secret files are never read".into());
         }
-        let Ok(real) = fs::canonicalize(self.root.join(rel)) else {
-            return Err("file not found".into());
-        };
-        if real != self.root && !real.starts_with(&self.root) {
-            return Err("path is outside the repo".into());
+        let (real, inner) = self.resolve(rel)?;
+        // A link to a secret is still the secret.
+        if is_secret_path(&inner) {
+            return Err("secret files are never read".into());
         }
         let meta = fs::metadata(&real).map_err(|_| "file not found".to_string())?;
         if !meta.is_file() {
@@ -128,7 +142,7 @@ impl Reader for RepoReader {
     }
 
     fn has(&self, rel: &str) -> bool {
-        is_safe_relative_path(rel) && self.root.join(rel).is_file()
+        self.resolve(rel).is_ok_and(|(real, _)| real.is_file())
     }
 }
 
@@ -164,7 +178,9 @@ pub fn list_repo_files<S: AsRef<str>>(root: &Path, ignore: &[S]) -> Vec<String> 
                     && fs::symlink_metadata(root.join(p)).is_ok_and(|m| m.is_file())
             })
             .collect();
+        // An unmerged path is listed once per stage.
         files.sort();
+        files.dedup();
         return files;
     }
     let mut files = Vec::new();

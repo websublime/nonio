@@ -204,3 +204,26 @@ fn branches_say_how_to_draw_the_map_not_anything_about_the_code() {
     assert_eq!(run(&map, &app()), run(&plain, &app()));
     assert_eq!(map.edges.iter().find(|e| e.id == "jd").unwrap().branch.as_deref(), Some("Writes a note instead"));
 }
+
+// Not in the original: guards found in review.
+
+#[cfg(unix)]
+#[test]
+fn never_reads_a_secret_through_a_link_or_by_another_case() {
+    let repo = copy_app();
+    std::os::unix::fs::symlink("../.env", repo.path().join("src/config.txt")).unwrap();
+    let map = variant(|m| {
+        item(m, "nodes", "u3")["evidence"][0] = json!({ "file": "src/config.txt", "line": 1, "text": "EMAIL_API_KEY" })
+    });
+    assert_eq!(run(&map, repo.path()).nodes["u3"].reasons, vec!["src/config.txt:1: secret files are never read"]);
+    let upper = variant(|m| {
+        item(m, "nodes", "u3")["evidence"][0] = json!({ "file": ".ENV", "line": 1, "text": "EMAIL_API_KEY" })
+    });
+    assert_eq!(run(&upper, repo.path()).nodes["u3"].reasons, vec![".ENV:1: secret files are never read"]);
+}
+
+#[test]
+fn blank_cited_text_proves_nothing() {
+    let map = variant(|m| item(m, "nodes", "u3")["evidence"][0]["text"] = json!("   "));
+    assert_eq!(run(&map, &app()).nodes["u3"].reasons, vec!["src/email/send.ts:1: the cited text is blank"]);
+}

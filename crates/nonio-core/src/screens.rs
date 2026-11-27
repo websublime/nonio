@@ -180,6 +180,15 @@ pub fn read_capture(root: &Path, id: &str) -> Result<Capture, String> {
         return Err(format!("\"{id}\" is not a capture id"));
     }
     let (record, image) = capture_paths(root, id);
+    // Only files nonio wrote itself: real files inside the repo, never a link to somewhere else.
+    let own = |p: &Path| {
+        let real_root = fs::canonicalize(root).ok();
+        fs::symlink_metadata(p).is_ok_and(|m| m.file_type().is_file())
+            && fs::canonicalize(p).ok().zip(real_root).is_some_and(|(real, root)| real.starts_with(root))
+    };
+    if record.exists() && !own(&record) || image.exists() && !own(&image) {
+        return Err(format!("capture {id} isn't a file nonio saved in this repo"));
+    }
     let Ok(text) = fs::read_to_string(&record) else {
         return Err(format!("there is no capture {id}; take one with the capture tool"));
     };

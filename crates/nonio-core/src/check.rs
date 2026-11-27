@@ -467,6 +467,10 @@ pub fn check_evidence(repo: &dyn Reader, e: &Evidence, window: usize) -> Evidenc
     };
     let lines: Vec<&str> = text.split('\n').collect();
     let want = squash(&e.text);
+    // Blank text is on every line, so it proves nothing.
+    if want.is_empty() {
+        return at(false, None, Some("the cited text is blank".into()));
+    }
     let has = |n: usize| n >= 1 && lines.get(n - 1).is_some_and(|l| squash(l).contains(&want));
     for d in 0..=window {
         let tries: &[Option<usize>] = if d == 0 { &[Some(e.line)] } else { &[e.line.checked_sub(d), Some(e.line + d)] };

@@ -91,7 +91,8 @@ impl BaseReader {
         if !self.has(rel) {
             return Err("file not found".into());
         }
-        let Some(text) = git(&self.root, &["show", &format!("{}:./{rel}", self.commit)]) else {
+        // `cat-file blob` gives the stored bytes; `show` may run textconv filters.
+        let Some(text) = git(&self.root, &["cat-file", "blob", &format!("{}:./{rel}", self.commit)]) else {
             return Err("file not found".into());
         };
         if text.len() as u64 > MAX_FILE_BYTES {
