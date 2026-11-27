@@ -44,6 +44,17 @@ claude mcp add --scope user nonio -- /path/to/target/release/nonio mcp
 `--repo <dir>` picks the repo (default: the host's project folder, else the current one); `--port <n>` the page
 server's port (default 4317). `NONIO_HOST` forces a host profile (`claude-code`, `codex`, `cursor`).
 
+## Plugin
+
+`plugin/` is nonio as an [Agent Plugin](https://agent-plugins.org/) (spec 1.0.0, D04): `plugin.json`, `mcp.json` and
+the `nonio` skill, plus `.cursor-plugin/plugin.json` for Cursor. `mcp.json` starts the server with
+`npx -y @websublime/nonio@<version> mcp`, so the plugin needs Node and npm, and npm decides where the package comes
+from: the public npm registry, or an internal one when the `@websublime` scope points there. The repo root's
+`.cursor-plugin/marketplace.json` lists the plugin, so this repo (or a mirror of it) can be imported as a Cursor team
+marketplace. To try it locally in Cursor, copy `plugin/` to `~/.cursor/plugins/local/nonio` and reload the window.
+
+The versions in `plugin/` follow the workspace version; `cargo test -p nonio-cli --test plugin` fails when they drift.
+
 ## Tests
 
 ```sh

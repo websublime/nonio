@@ -1,0 +1,12 @@
+{
+  "name": "nonio",
+  "owner": { "name": "websublime" },
+  "metadata": { "description": "nonio://: checked, interactive maps of how your code works." },
+  "plugins": [
+    {
+      "name": "nonio",
+      "source": "plugin",
+      "description": "Ask how your code works and get a checked map you can point at and ask about."
+    }
+  ]
+}

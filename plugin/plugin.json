@@ -1,0 +1,11 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "nonio",
+  "version": "0.0.1",
+  "description": "Checked, interactive maps of how your code works. Ask how something works and your agent draws a map in your browser; a program checks every box and arrow against the code before it is shown.",
+  "author": { "name": "websublime" },
+  "homepage": "https://github.com/websublime/nonio#readme",
+  "repository": "https://github.com/websublime/nonio",
+  "license": "MIT",
+  "keywords": ["architecture", "code-review", "diagram", "onboarding", "mcp"]
+}
