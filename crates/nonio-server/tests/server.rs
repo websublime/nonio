@@ -243,3 +243,28 @@ async fn serves_the_viewer_its_assets_and_index_for_everything_else() {
     assert_eq!(raw(server.port, "POST", "/m/a-map", &[], None).await.status, 405);
     server.close().await;
 }
+
+#[tokio::test]
+async fn serves_a_capture_as_a_picture_with_the_token_in_the_url_and_nothing_else() {
+    use nonio_server::screens::{capture, CaptureTarget, Shot};
+    let dir = copy_care_app();
+    std::fs::write(dir.path().join("demo.html"), "<button>Mark as converted</button>").unwrap();
+    let shoot: nonio_server::screens::Shooter = Arc::new(|_url: String| {
+        Box::pin(async {
+            Ok(Shot { png: b"\x89PNG fake".to_vec(), title: String::new(), text: String::new(), elements: vec![] })
+        })
+    });
+    let id = capture(dir.path(), &CaptureTarget::File("demo.html".into()), Some(&shoot)).await.unwrap().capture.id;
+    let server = start(dir.path(), ScriptedAgent::new(vec![])).await;
+    let t = &server.token;
+    let img = raw(server.port, "GET", &format!("/api/screens/{id}.png?t={t}"), &[], None).await;
+    assert_eq!(img.status, 200);
+    assert!(img.headers.to_ascii_lowercase().contains("content-type: image/png"));
+    assert!(img.text.starts_with("\u{FFFD}PNG fake"), "{}", img.text);
+    assert_eq!(raw(server.port, "GET", &format!("/api/screens/{id}.png"), &[], None).await.status, 401);
+    assert_eq!(raw(server.port, "GET", &format!("/api/screens/scr-nope.png?t={t}"), &[], None).await.status, 404);
+    assert_eq!(raw(server.port, "GET", &format!("/api/repo-image?file=.env&t={t}"), &[], None).await.status, 404);
+    // The token in the URL opens pictures only, nothing else.
+    assert_eq!(raw(server.port, "GET", &format!("/api/maps?t={t}"), &[], None).await.status, 401);
+    server.close().await;
+}
