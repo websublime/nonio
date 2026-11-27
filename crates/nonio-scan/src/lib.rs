@@ -10,7 +10,8 @@
 //!
 //! Java, Kotlin and Python are read with `code2graph`'s precise tier behind [`GraphExtractor`] (D14), whose edges
 //! are checked again so none rests on a name match (D16), and whose gaps on typed receivers (fields, constructor
-//! properties, typed locals) are filled from the declared types (D15). [`Scanner`] sends each file to its backend.
+//! properties, typed locals) are filled from the declared types (D15). Spring MVC routes come from the annotations of
+//! Java and Kotlin controllers, literal paths only ([`spring_routes`]). [`Scanner`] sends each file to its backend.
 //! Go gets no facts yet.
 
 mod adapters;
@@ -23,6 +24,7 @@ mod re;
 mod record;
 mod resolve;
 mod routes;
+mod spring;
 mod tables;
 mod vue;
 mod walk;
@@ -42,6 +44,7 @@ pub use hash::{hash_text, squash};
 pub use record::{module_record, ExportTarget, ModuleRecord};
 pub use resolve::{normalize_path, package_name, resolve_path, resolve_specifier, workspace_dirs, RepoResolver};
 pub use routes::normalize_route_path;
+pub use spring::spring_routes;
 pub use tables::{find_reads, parse_sql_tables};
 pub use vue::{parse_sfc, Sfc};
 

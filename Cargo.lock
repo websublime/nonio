@@ -1335,6 +1335,9 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+ "tree-sitter",
+ "tree-sitter-java",
+ "tree-sitter-kotlin-ng",
  "vue-compiler-core",
 ]
 

@@ -31,10 +31,14 @@ use code2graph::{
     Binding, BindingKind, BindingTarget, CodeGraph, Edge, Provenance, RefRole, Reference, Symbol, SymbolId,
     SymbolKind as GraphKind, TypeRefContext, Visibility,
 };
-use nonio_facts::{CallConfidence, CallFact, Extractor, FileFacts, ImportFact, RepoView, Span, SymbolFact, SymbolKind};
+use nonio_facts::{
+    CallConfidence, CallFact, EntryFact, EntryKind, Extractor, FileFacts, ImportFact, RepoView, Span, SymbolFact,
+    SymbolKind,
+};
 use regex::Regex;
 
 use crate::hash::{hash_text, squash};
+use crate::spring::spring_routes;
 
 /// The extensions read through `code2graph`.
 pub const GRAPH_EXTENSIONS: [&str; 4] = [".java", ".kt", ".kts", ".py"];
@@ -591,6 +595,21 @@ impl<'g> Index<'g> {
         facts.symbols = self.symbols(f, text);
         facts.imports = self.imports(f);
         facts.calls = self.calls(f);
+        facts.routes = spring_routes(&f.file, text, &facts.symbols);
+        facts.entries = facts
+            .routes
+            .iter()
+            .map(|r| {
+                let label = format!("{} {}", r.method, r.path);
+                EntryFact {
+                    id: format!("entry:route:{label}"),
+                    kind: EntryKind::Route,
+                    file: f.file.clone(),
+                    symbol: r.handler.clone(),
+                    label,
+                }
+            })
+            .collect();
         facts
     }
 
