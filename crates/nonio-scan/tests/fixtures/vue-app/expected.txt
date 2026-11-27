@@ -1,0 +1,23 @@
+# file | kind | text as written | line in the .vue | substring the resolved target must contain
+# (1) <script setup>: calls at the top and inside functions
+src/components/OrderList.vue | call | useOrders | 9 | import useOrders from '../composables/useOrders'
+src/components/OrderList.vue | call | computed | 10 | import computed from 'vue'
+src/components/OrderList.vue | call | load | 13 | binding load declared in <script setup> at 9:
+src/components/OrderList.vue | call | http.get | 14 | import http from '../api/client'
+src/components/OrderList.vue | call | onMounted | 21 | import onMounted from 'vue'
+src/components/OrderList.vue | call | refresh | 21 | binding refresh declared in <script setup> at 12:
+src/components/OrderRow.vue | call | defineEmits | 3 | unresolved
+# (2) <template>: references to functions, composables, components
+src/components/OrderList.vue | call | formatTotal | 27 | import formatTotal from '../utils/format'
+src/components/OrderList.vue | ref | refresh | 28 | binding refresh declared in <script setup> at 12:
+src/components/OrderList.vue | component | OrderRow | 29 | import OrderRow from './OrderRow.vue'
+src/components/OrderList.vue | call | pick | 29 | binding pick declared in <script setup> at 17:
+src/components/OrderRow.vue | call | emit | 7 | binding emit declared in <script setup> at 3:
+# Decoy: `o` is the v-for variable, never useOrders().load nor format.ts#load
+src/components/OrderList.vue | call | o.load | 29 | binding o declared in <template>
+# Options API (plain <script>): the method `show` is not a scope binding, so it must stay unresolved.
+# nonio (D28) does not lower a template without <script setup> at all, so `show` must not even be seen
+# (the spike, on vue_oxlint_jsx, expected `unresolved`).
+src/components/LegacyCounter.vue | call | load | 11 | binding load declared in <script> at 5:
+src/components/LegacyCounter.vue | call | formatTotal | 15 | import formatTotal from '../utils/format'
+src/components/LegacyCounter.vue | call | show | 22 | not lowered

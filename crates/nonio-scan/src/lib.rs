@@ -5,8 +5,10 @@
 //! writes. Calls are resolved by scope and import only (`syntactic`); a call resolved by name alone is never made
 //! (D16).
 //!
-//! Python, Go, Java and Kotlin get no facts here yet (they come with the `code2graph` adapter); Vue SFCs neither, until
-//! Q11 is settled.
+//! Vue single-file components are read with the same backend (D28): the `<script>` blocks in place and the template
+//! lowered to JSX in the same program (see [`parse_sfc`]); template calls belong to the symbol `<path>#<template>`.
+//!
+//! Python, Go, Java and Kotlin get no facts here yet (they come with the `code2graph` adapter).
 
 mod adapters;
 mod entries;
@@ -18,6 +20,7 @@ mod record;
 mod resolve;
 mod routes;
 mod tables;
+mod vue;
 mod walk;
 
 use std::cell::{OnceCell, RefCell};
@@ -35,6 +38,7 @@ pub use record::{module_record, ExportTarget, ModuleRecord};
 pub use resolve::{normalize_path, package_name, resolve_path, resolve_specifier, workspace_dirs, RepoResolver};
 pub use routes::normalize_route_path;
 pub use tables::{find_reads, parse_sql_tables};
+pub use vue::{parse_sfc, Sfc};
 
 use record::ModuleRecord as Record;
 
@@ -117,7 +121,7 @@ impl Extractor for OxcExtractor {
         let exists = |p: &str| repo.exists(p);
         let resolve = |from: &str, spec: &str| resolve_specifier(from, spec, &exists, Some(resolver));
         let record_of = |file: &str| {
-            if !is_code_file(file) {
+            if !is_code_file(file) && !file.ends_with(".vue") {
                 return None;
             }
             let text = repo.text(file)?;

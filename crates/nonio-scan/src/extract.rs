@@ -1,4 +1,4 @@
-//! Facts for one TS/JS file: one oxc parse, one walk. Ported from `extract` in `facts/extract.ts` of illuminate (MIT,
+//! Facts for one TS/JS file (or Vue SFC, see [`crate::vue`]): one oxc parse, one walk. Ported from `extract` in `facts/extract.ts` of illuminate (MIT,
 //! Copyright (c) 2026 johnz4021).
 
 use std::rc::Rc;
@@ -19,6 +19,7 @@ use crate::record::{
 };
 use crate::routes::{next_routes, route_fact};
 use crate::tables::{find_reads, sql_facts};
+use crate::vue::parse_sfc;
 use crate::walk::{Context, Walker};
 
 /// A route pattern confirmed for a repo: `file` is a glob; `pattern` a JavaScript regex source matched against that
@@ -57,9 +58,15 @@ pub fn extract(path: &str, source: &str, ctx: &ExtractContext<'_>) -> (FileFacts
         return (sql_facts(path, source), record, true);
     }
     let allocator = Allocator::default();
-    let ret = parse(&allocator, path, source);
+    // A Vue SFC is read as its script blocks in place plus its template lowered into the same program (D28); `text`
+    // is what the script was parsed from. Markup that doesn't parse goes the way of any file that doesn't.
+    let sfc = path.ends_with(".vue").then(|| parse_sfc(&allocator, source)).flatten();
+    let (ret, text, template) = match sfc {
+        Some(s) => (s.ret, s.script, s.template),
+        None => (parse(&allocator, path, source), source, None),
+    };
     let parsed = clean(&ret);
-    let record = if parsed { from_oxc(source, &ret) } else { from_regex(source) };
+    let record = if parsed { from_oxc(text, &ret) } else { from_regex(text) };
     let mut facts = FileFacts { hash: hash_text(source), ..FileFacts::empty(path) };
 
     let mut imports: IndexMap<String, bool> = IndexMap::new();
@@ -71,12 +78,12 @@ pub fn extract(path: &str, source: &str, ctx: &ExtractContext<'_>) -> (FileFacts
     }
     facts.imports = imports.into_iter().map(|(to, type_only)| ImportFact { to, type_only }).collect();
 
-    let code = if parsed { mask_comments(source, &comment_spans(&ret)) } else { source.to_string() };
+    let code = if parsed { mask_comments(text, &comment_spans(&ret)) } else { text.to_string() };
     let walk_ctx = Context { resolve: ctx.resolve, record_of: ctx.record_of };
     // The original counts the size in UTF-16 units.
     let walk = parsed && source.encode_utf16().count() <= BULK_MIN && !is_minified(source);
     let scoping = walk.then(|| SemanticBuilder::new().build(&ret.program).semantic.into_scoping());
-    let mut w = Walker::new(path, source, &walk_ctx, &record, scoping.as_ref());
+    let mut w = Walker::new(path, source, &walk_ctx, &record, scoping.as_ref()).with_template(template);
     if walk {
         w.run(&ret.program);
     }

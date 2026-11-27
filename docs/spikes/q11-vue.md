@@ -21,7 +21,7 @@ expectativas, output bruto em `results-*.txt`).
   (posições preservadas), o backend oxc atual dá as chamadas do `<script setup>` com os ids e spans do `.vue`. Falta o
   template.
 
-**Recomendação (por decidir, ver D28 abaixo):** backend Vue próprio no `nonio-scan`, sobre o oxc do workspace. Script
+**Decisão (D28, Acordado em 2026-11-27):** backend Vue próprio no `nonio-scan`, sobre o oxc do workspace. Script
 lido no sítio; template baixado para JSX com o método do `vue_oxlint_jsx` (MIT), portado para oxc 0.153, e
 `vue-compiler-core` 0.1.0 (MIT, sem dependência de oxc) para o HTML, como faz o próprio `vue_oxlint_jsx`.
 
@@ -115,7 +115,7 @@ O `load()` dentro de `refresh` fica sem aresta nos dois casos, como em TS: `load
 | Compila só com oxc 0.129 a 0.135 | Medido (0.129 a 0.131, 0.133 a 0.136, 0.140, 0.153) |
 | O projeto está parado e não é para uso direto | Medido (README e `git log` do upstream em 2026-11-27) |
 | O `nonio-scan` atual cobre o script com o texto fora dos `<script>` trocado por espaços | Medido no fixture |
-| Portar a baixa do template para oxc 0.153 é trabalho contido (cerca de 31 erros de compilação, sobretudo mudanças de API) | Assumido; contado pelos erros, não feito |
+| Portar a baixa do template para oxc 0.153 é trabalho contido (cerca de 31 erros de compilação, sobretudo mudanças de API) | Medido: feito (ver "Implementação") |
 | `vue-compiler-core` 0.1.0 (2021) aguenta SFC reais | Assumido; só corrido no fixture, através do `vue_oxlint_jsx` |
 | Resultado igual num repo Vue real | Não medido; o fixture é pequeno e escrito por quem fez o spike |
 | `vue_oxlint_parser` (porte do `vue-eslint-parser`) | Só compilado com 0.129; não medido |
@@ -130,7 +130,8 @@ O `load()` dentro de `refresh` fica sem aresta nos dois casos, como em TS: `load
    `parser/elements/{v_for,v_slot}.rs`). Ao contrário do crate, pôr o setup no scope do módulo e não numa arrow, para
    o `Walker` ver `refresh` como símbolo de topo (`OrderList.vue#refresh`) e não como local (D16).
 4. **Filtrar nós sintéticos** (span vazio) antes de emitir factos.
-5. **De quem é uma chamada do template.** Por decidir: do ficheiro (como as chamadas de topo hoje) ou de um símbolo
+5. **De quem é uma chamada do template.** Implementado com a proposta (símbolo `<path>#<template>`), à espera de
+   confirmação do Miguel. Era por decidir: do ficheiro (como as chamadas de topo hoje) ou de um símbolo
    sintético `<template>`. Proposta: símbolo `<path>#<template>` com o span do bloco, para o mapa poder mostrar
    "o template chama `refresh`".
 6. **NOTICE:** o que for portado do `vue_oxlint_jsx` leva o aviso MIT de Liang Mi (e o que ele traz de
@@ -170,4 +171,35 @@ Linha Vue SFC: "oxc sobre os blocos `<script>` lidos no sítio, mais o template 
 
 | # | Decisão | Porquê | Estado |
 |---|---|---|---|
-| D28 | Backend Vue próprio no `nonio-scan`, sobre o oxc do workspace: script lido no sítio, template baixado para JSX com o método do `vue_oxlint_jsx` (portado, MIT, no NOTICE) e `vue-compiler-core` para o HTML; sem depender do `vue-oxlint-toolkit` | No spike Q11 o crate acertou 16/16, mas só compila com oxc ≤ 0.135, está parado e diz-se proof of concept; um segundo oxc no workspace não serve ao `Walker` | Proposta |
+| D28 | Backend Vue próprio no `nonio-scan`, sobre o oxc do workspace: script lido no sítio, template baixado para JSX com o método do `vue_oxlint_jsx` (portado, MIT, no NOTICE) e `vue-compiler-core` para o HTML; sem depender do `vue-oxlint-toolkit` | No spike Q11 o crate acertou 16/16, mas só compila com oxc ≤ 0.135, está parado e diz-se proof of concept; um segundo oxc no workspace não serve ao `Walker` | Acordado |
+
+## Implementação (2026-11-27)
+
+Feita no `nonio-scan` (`src/vue.rs`), sobre oxc 0.153 e `vue-compiler-core` 0.1.0, sem o `vue-oxlint-toolkit`.
+Detalhe no [`README` do crate](../../crates/nonio-scan/README.md#vue-single-file-components-d28).
+
+| Afirmação | Estado |
+|---|---|
+| As 16 expectativas do fixture passam com o porte | Medido: `tests/vue.rs` corre o harness do spike portado sobre `tests/fixtures/vue-app`; 16/16 |
+| Posições: todas as chamadas, referências e nomes do template fazem `source[span] == texto` no `.vue` | Medido no fixture e num `.vue` com texto não ASCII antes dos blocos |
+| `refresh` e `pick` do `<script setup>` são símbolos de topo (`OrderList.vue#refresh`), sem arrow sintética | Medido |
+| Nenhum nó sintético chega aos factos | Medido: o `v-for` passa a `[fonte, (vars) => <el/>]` (sem chamada); a única chamada sintética é a do handler por referência, cujo callee tem o span real |
+| `vue-compiler-core` 0.1.0 aguenta SFC reais | Assumido; só corrido no fixture e nos casos de `tests/vue.rs`. Não medido num repo Vue real |
+| Custo do `vue-compiler-core` | Medido: 42 crates novos no `Cargo.lock` (sobretudo `rslint_parser` e os seus, e `winapi`); compila com Rust 1.97 |
+
+Diferenças medidas em relação ao `vue_oxlint_jsx`, e porquê:
+
+- **Posições em chars.** O `vue-compiler-core` conta `Position.offset` em chars, não em bytes
+  (`scanner.rs`, `move_by`). O `vue_oxlint_jsx` usa-os como bytes; num `.vue` com texto não ASCII antes de um bloco
+  os spans ficariam desviados. O `nonio` converte-os para bytes.
+- **Sem `<script setup>` (Options API), o template não é baixado.** Nesse caso o template vê a instância do
+  componente e não os bindings do módulo; ligar `{{ show() }}` ou `{{ formatTotal() }}` ao que o script declara seria
+  ligar por nome (regra 7, D16). A expectativa do `show` passou de "não resolvido" a "não baixado".
+- **Handler por referência conta como chamada.** `@click="refresh"` dá `OrderList.vue#<template> → #refresh`, porque o
+  Vue chama o handler no evento. Handlers com várias instruções (`a = 1; close()`) passam a corpo de uma arrow.
+- **Scope que não faz parse larga o elemento.** Um `v-for` ou `v-slot` cujas variáveis não fazem parse não deixa os
+  nomes do elemento sem scope (que se ligariam por nome); o elemento sai inteiro.
+- **Cada expressão faz parse sozinha**, com os spans deslocados para o sítio no `.vue`, em vez de copiar o ficheiro
+  inteiro com padding por expressão. Linear no tamanho do template e sem `unsafe`.
+- **Componentes usados no template não são chamadas**, como no TSX (a aresta de import já existe). O nome do componente
+  resolve-se ao import, mas não entra em `calls`.

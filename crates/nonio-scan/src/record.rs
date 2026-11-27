@@ -244,8 +244,16 @@ pub fn from_regex(source: &str) -> ModuleRecord {
     }
 }
 
-/// The record of `source`, parsed on its own.
+/// The record of `source`, parsed on its own. For a Vue SFC, the record of its script blocks.
 pub fn module_record(path: &str, source: &str) -> ModuleRecord {
+    if path.ends_with(".vue") {
+        let allocator = Allocator::default();
+        return match crate::vue::parse_sfc(&allocator, source) {
+            Some(s) if clean(&s.ret) => from_oxc(s.script, &s.ret),
+            Some(s) => from_regex(s.script),
+            None => from_regex(source),
+        };
+    }
     let allocator = Allocator::default();
     let ret = parse(&allocator, path, source);
     if clean(&ret) {

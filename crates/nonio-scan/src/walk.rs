@@ -229,6 +229,8 @@ pub struct Walker<'a, 'c> {
     /// declared), innermost last.
     locals: Vec<HashMap<String, (String, u32)>>,
     resolved: HashMap<(String, String), Option<String>>,
+    /// The span of the statement holding a Vue SFC's lowered template (see [`crate::vue`]).
+    template: Option<Span>,
 }
 
 impl<'a, 'c> Walker<'a, 'c> {
@@ -262,7 +264,15 @@ impl<'a, 'c> Walker<'a, 'c> {
             cls: None,
             locals: Vec::new(),
             resolved: HashMap::new(),
+            template: None,
         }
+    }
+
+    /// For a Vue SFC: the top-level statement with this span is its lowered template. It becomes the symbol
+    /// `<path>#<template>` (with the span of the `<template>` block), and the calls made in it are its calls.
+    pub fn with_template(mut self, span: Option<Span>) -> Self {
+        self.template = span;
+        self
     }
 
     pub fn run(&mut self, program: &Program<'a>) {
@@ -497,6 +507,11 @@ impl<'a, 'c> Walker<'a, 'c> {
                 if let Some(d) = s.as_declaration() {
                     self.declaration(d, false, s.span());
                 }
+            }
+            Statement::ExpressionStatement(e) if Some(e.span) == self.template => {
+                let sym =
+                    self.define("<template>", SymbolKind::Function, false, None, e.span, "template", self.text(e.span));
+                self.inside(sym, |w| w.visit_expression(&e.expression));
             }
             s => self.visit_statement(s),
         }
