@@ -39,9 +39,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.88
+      - uses: dtolnay/rust-toolchain@1.97
       - uses: Swatinem/rust-cache@v2
-      # rust-toolchain.toml pins stable; the variable overrides it so this job really builds with 1.88.
+      # rust-toolchain.toml pins stable; the variable overrides it so this job really builds with 1.97.
       - run: cargo test --all --locked
         env:
-          RUSTUP_TOOLCHAIN: "1.88"
+          RUSTUP_TOOLCHAIN: "1.97"

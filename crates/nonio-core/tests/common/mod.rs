@@ -63,12 +63,39 @@ impl Recorded {
     }
 }
 
-impl Extractor for Recorded {
-    fn extract(&self, _repo: &dyn RepoView, path: &str, source: &str) -> Option<FileFacts> {
+impl Recorded {
+    fn get(&self, path: &str, source: &str) -> FileFacts {
         let hash: String = Sha256::digest(source.as_bytes()).iter().map(|b| format!("{b:02x}")).collect();
         let facts = self.by_file.get(path).and_then(|v| v.get(&hash));
-        Some(facts.unwrap_or_else(|| panic!("no recorded facts for {path} at {hash}")).clone())
+        facts.unwrap_or_else(|| panic!("no recorded facts for {path} at {hash}")).clone()
     }
+}
+
+impl Extractor for Recorded {
+    fn extract(&self, _repo: &dyn RepoView, path: &str, source: &str) -> Option<FileFacts> {
+        Some(self.get(path, source))
+    }
+}
+
+/// nonio's own oxc backend, checked against the recording: every file a test reads must give exactly the facts
+/// illuminate's extractor gave for the same text. The checker then runs on the oxc facts.
+pub struct Oxc {
+    recorded: Recorded,
+    oxc: nonio_scan::OxcExtractor,
+}
+
+impl Extractor for Oxc {
+    fn extract(&self, repo: &dyn RepoView, path: &str, source: &str) -> Option<FileFacts> {
+        let want = self.recorded.get(path, source);
+        let got = self.oxc.extract(repo, path, source).unwrap_or_else(|| panic!("no oxc facts for {path}"));
+        pretty_assertions::assert_eq!(got, want, "oxc facts for {path} differ from the recording");
+        Some(got)
+    }
+}
+
+/// The extractor the tests check with, for the repo at `root`.
+pub fn extractor(root: &Path) -> Oxc {
+    Oxc { recorded: Recorded::load(), oxc: nonio_scan::OxcExtractor::new(root) }
 }
 
 pub fn copy_dir(from: &Path, to: &Path) {
@@ -112,5 +139,5 @@ pub fn read(dir: &Path, rel: &str) -> String {
 
 /// Check a map against `root` with the recorded facts.
 pub fn run(map: &CodeMap, root: &Path) -> nonio_core::CheckReport {
-    nonio_core::check(map, root, &Recorded::load(), &nonio_core::CheckOptions::default()).unwrap()
+    nonio_core::check(map, root, &extractor(root), &nonio_core::CheckOptions::default()).unwrap()
 }

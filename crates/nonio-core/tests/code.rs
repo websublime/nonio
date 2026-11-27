@@ -12,7 +12,7 @@ use nonio_core::format::CodeMap;
 use serde_json::json;
 
 fn view(map: &CodeMap, root: &Path, id: &str, when: When) -> Option<CodeView> {
-    code_of(map, root, &Recorded::load(), id, when).unwrap()
+    code_of(map, root, &extractor(root), id, when).unwrap()
 }
 
 fn map() -> CodeMap {
@@ -172,7 +172,7 @@ fn drops_a_second_note_on_the_same_line_and_a_note_on_a_secret_file() {
 fn shows_the_code_with_each_note_on_its_line_and_counts_notes_the_code_no_longer_has() {
     let v = code_for_notes(
         &app(),
-        &Recorded::load(),
+        &extractor(&app()),
         &[note(6, "bus.emit('patient.converted'", SERVICE), note(2, "gone", SERVICE)],
     )
     .unwrap();

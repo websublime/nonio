@@ -1,2 +1,3 @@
 # Recorded facts are keyed by the SHA-256 of fixture text: keep it byte for byte.
 crates/nonio-core/tests/fixtures/** -text
+crates/nonio-scan/tests/fixtures/** -text
