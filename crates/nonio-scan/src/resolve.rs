@@ -307,8 +307,11 @@ impl PathsMatcher {
 struct Options {
     base_url: Option<PathBuf>,
     /// The patterns, and the directory of the config that declared them (their base without `baseUrl`).
-    paths: Option<(Vec<(String, Vec<String>)>, PathBuf)>,
+    paths: Option<(Vec<Pattern>, PathBuf)>,
 }
+
+/// A tsconfig `paths` entry: the pattern and its substitutions.
+type Pattern = (String, Vec<String>);
 
 /// Read `file` into `out`: what it extends first, then its own options over them.
 fn read_tsconfig(root: &Path, file: &Path, out: &mut Options, depth: usize) {

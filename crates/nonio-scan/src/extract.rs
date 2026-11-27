@@ -8,6 +8,7 @@ use fancy_regex::Regex;
 use indexmap::IndexMap;
 use nonio_facts::{matches_any, EntryFact, EntryKind, FileFacts, ImportFact, RouteFact, WriteSite};
 use oxc_allocator::Allocator;
+use oxc_semantic::SemanticBuilder;
 
 use crate::adapters::{mask_comments, Hit};
 use crate::entries::PackageEntry;
@@ -72,9 +73,11 @@ pub fn extract(path: &str, source: &str, ctx: &ExtractContext<'_>) -> (FileFacts
 
     let code = if parsed { mask_comments(source, &comment_spans(&ret)) } else { source.to_string() };
     let walk_ctx = Context { resolve: ctx.resolve, record_of: ctx.record_of };
-    let mut w = Walker::new(path, source, &walk_ctx, &record);
     // The original counts the size in UTF-16 units.
-    if parsed && source.encode_utf16().count() <= BULK_MIN && !is_minified(source) {
+    let walk = parsed && source.encode_utf16().count() <= BULK_MIN && !is_minified(source);
+    let scoping = walk.then(|| SemanticBuilder::new().build(&ret.program).semantic.into_scoping());
+    let mut w = Walker::new(path, source, &walk_ctx, &record, scoping.as_ref());
+    if walk {
         w.run(&ret.program);
     }
     w.finish();

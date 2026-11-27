@@ -5,7 +5,8 @@ file its core tests read, keyed by path and the SHA-256 of the file's text. The 
 there (`Recorded` in `crates/nonio-core/tests/common/mod.rs`), so they test the checker alone, against exactly the
 facts the original checker saw. A file the recording doesn't have fails the test.
 
-When nonio's own TS/JS backend (oxc) lands, the same tests run against it and must give the same results.
+The tests now take their facts from nonio's own TS/JS backend (`crates/nonio-scan`) and assert that each file's facts
+equal the recorded ones.
 
 ## Regenerate
 

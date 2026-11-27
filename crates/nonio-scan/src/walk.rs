@@ -9,6 +9,7 @@ use indexmap::IndexMap;
 use nonio_facts::{CallConfidence, CallFact, RouteFact, SymbolFact, SymbolKind};
 use oxc_ast::ast::*;
 use oxc_ast_visit::{walk, Visit};
+use oxc_semantic::Scoping;
 use oxc_span::{GetSpan, Span};
 use oxc_syntax::scope::ScopeFlags;
 
@@ -182,12 +183,14 @@ impl<'b, 'a> F<'b, 'a> {
 struct Binding {
     spec: String,
     name: String,
+    /// Where a binding captured inside a function is declared (see [`Root::Ident`]); `None` at the top level.
+    at: Option<u32>,
 }
 
 /// A route handler as the route call names it.
 enum Handler {
     Node(Span),
-    Ident(String),
+    Ident(String, Option<u32>),
     Other,
 }
 
@@ -203,6 +206,7 @@ pub struct Walker<'a, 'c> {
     source: &'a str,
     ctx: &'c Context<'c>,
     record: &'c ModuleRecord,
+    scoping: Option<&'c Scoping>,
     jsx: bool,
     pub symbols: Vec<SymbolFact>,
     pub calls: IndexMap<(String, String), CallFact>,
@@ -217,18 +221,28 @@ pub struct Walker<'a, 'c> {
     node_sym: HashMap<(u32, u32), String>,
     current: Option<usize>,
     cls: Option<usize>,
-    /// Named functions declared directly in each enclosing function's body (name → id), innermost last.
-    locals: Vec<HashMap<String, String>>,
+    /// Named functions declared directly in each enclosing function's body (name → id and where the name is
+    /// declared), innermost last.
+    locals: Vec<HashMap<String, (String, u32)>>,
     resolved: HashMap<(String, String), Option<String>>,
 }
 
 impl<'a, 'c> Walker<'a, 'c> {
-    pub fn new(path: &'c str, source: &'a str, ctx: &'c Context<'c>, record: &'c ModuleRecord) -> Self {
+    /// `scoping` (from oxc_semantic) lets a call whose root is a parameter or local variable stay unlinked instead of
+    /// being linked by name to an import or a top-level symbol it only shares a name with (D16).
+    pub fn new(
+        path: &'c str,
+        source: &'a str,
+        ctx: &'c Context<'c>,
+        record: &'c ModuleRecord,
+        scoping: Option<&'c Scoping>,
+    ) -> Self {
         Self {
             path,
             source,
             ctx,
             record,
+            scoping,
             jsx: path.ends_with(".jsx") || path.ends_with(".tsx"),
             symbols: Vec::new(),
             calls: IndexMap::new(),
@@ -307,7 +321,7 @@ impl<'a, 'c> Walker<'a, 'c> {
                     _ => None,
                 };
                 let id = id.or_else(|| match &r.handler {
-                    Handler::Ident(name) => self.target_root(Root::Ident(name), Vec::new()),
+                    Handler::Ident(name, at) => self.target_root(Root::Ident(name, *at), Vec::new()),
                     _ => None,
                 });
                 route_fact(&r.method, &r.path, self.path, id.or(r.enclosing))
@@ -341,7 +355,7 @@ impl<'a, 'c> Walker<'a, 'c> {
                 if package_name(&spec).is_some_and(|p| FRAMEWORKS.contains(&p.as_str())) {
                     framework_locals.insert(local.clone());
                 }
-                self.bindings.insert(local, Binding { spec: spec.clone(), name });
+                self.bindings.insert(local, Binding { spec: spec.clone(), name, at: None });
             }
         }
         for s0 in body {
@@ -420,13 +434,10 @@ impl<'a, 'c> Walker<'a, 'c> {
     fn framework_prefix(&self, init: Option<&Expression<'a>>, locals: &HashSet<String>) -> Option<String> {
         let mut x = unwrap(init?);
         let mut prefix = String::new();
-        loop {
-            let U::C(call) = (match x {
-                U::E(Expression::CallExpression(c)) => U::C(c),
-                other => other,
-            }) else {
-                break;
-            };
+        while let U::C(call) = match x {
+            U::E(Expression::CallExpression(c)) => U::C(c),
+            other => other,
+        } {
             let U::M(m) = unwrap(&call.callee) else { break };
             let obj = unwrap(m.object());
             if obj.ident().is_some() {
@@ -653,16 +664,16 @@ impl<'a, 'c> Walker<'a, 'c> {
 
     /// The functions declared directly in `node`'s body, with the ids they'll get as nested symbols (`outer.a`), so
     /// calls between them resolve even before the declaration (hoisting). A name declared twice is left out.
-    fn local_fns(&self, node: F<'_, 'a>, sym: usize) -> HashMap<String, String> {
+    fn local_fns(&self, node: F<'_, 'a>, sym: usize) -> HashMap<String, (String, u32)> {
         let mut out = HashMap::new();
         let mut twice = HashSet::new();
         let owner = &self.symbols[sym].name;
-        let mut add = |name: &str| {
+        let mut add = |name: &str, at: u32| {
             if out.contains_key(name) || twice.contains(name) {
                 out.remove(name);
                 twice.insert(name.to_string());
             } else {
-                out.insert(name.to_string(), format!("{}#{owner}.{name}", self.path));
+                out.insert(name.to_string(), (format!("{}#{owner}.{name}", self.path), at));
             }
         };
         for st in node.block().map(|b| &b.statements[..]).unwrap_or(&[]) {
@@ -671,14 +682,14 @@ impl<'a, 'c> Walker<'a, 'c> {
                     if f.body.is_some() && f.r#type == FunctionType::FunctionDeclaration =>
                 {
                     if let Some(id) = &f.id {
-                        add(id.name.as_str());
+                        add(id.name.as_str(), id.span.start);
                     }
                 }
                 Statement::VariableDeclaration(v) => {
                     for d in &v.declarations {
                         if let BindingPattern::BindingIdentifier(id) = &d.id {
                             if unwrap_opt(d.init.as_ref()).and_then(U::func).is_some() {
-                                add(id.name.as_str());
+                                add(id.name.as_str(), id.span.start);
                             }
                         }
                     }
@@ -927,7 +938,8 @@ impl<'a, 'c> Walker<'a, 'c> {
         let Some(spec) = spec else { return };
         match &d.id {
             BindingPattern::BindingIdentifier(id) => {
-                self.bindings.insert(id.name.to_string(), Binding { spec, name: "*".into() });
+                let at = self.declared_inside(id);
+                self.bindings.insert(id.name.to_string(), Binding { spec, name: "*".into(), at });
             }
             BindingPattern::ObjectPattern(o) => {
                 for p in &o.properties {
@@ -937,7 +949,8 @@ impl<'a, 'c> Walker<'a, 'c> {
                         v => v,
                     };
                     if let BindingPattern::BindingIdentifier(l) = local {
-                        self.bindings.insert(l.name.to_string(), Binding { spec: spec.clone(), name: key });
+                        let at = self.declared_inside(l);
+                        self.bindings.insert(l.name.to_string(), Binding { spec: spec.clone(), name: key, at });
                     }
                 }
             }
@@ -979,32 +992,53 @@ impl<'a, 'c> Walker<'a, 'c> {
         }
         match root.expr()? {
             Expression::ThisExpression(_) => self.target_root(Root::This, chain),
-            Expression::Identifier(i) => self.target_root(Root::Ident(i.name.as_str()), chain),
+            Expression::Identifier(i) => {
+                let at = self.local_of(i);
+                self.target_root(Root::Ident(i.name.as_str(), at), chain)
+            }
             _ => None,
         }
     }
 
     fn target_root(&mut self, root: Root<'_>, chain: Vec<String>) -> Option<String> {
-        let name = match root {
+        let (name, at) = match root {
             Root::This => {
                 let cls = self.cls?;
                 return (!chain.is_empty())
                     .then(|| format!("{}#{}.{}", self.path, self.symbols[cls].name, chain.join(".")));
             }
-            Root::Ident(n) => n,
+            Root::Ident(n, at) => (n, at),
         };
         // A function declared in an enclosing function's body shadows imports and top-level names.
         for scope in self.locals.iter().rev() {
-            if let Some(local) = scope.get(name) {
+            if let Some((local, decl)) = scope.get(name) {
+                if at.is_some_and(|a| a != *decl) {
+                    continue;
+                }
                 return Some(std::iter::once(local.clone()).chain(chain).collect::<Vec<_>>().join("."));
             }
         }
-        if let Some(b) = self.bindings.get(name).cloned() {
+        if let Some(b) = self.bindings.get(name).filter(|b| at.is_none() || b.at == at).cloned() {
             return self.link_import(&b, chain);
+        }
+        // Any other parameter or local variable only shares the name with whatever the file declares on top (D16).
+        if at.is_some() {
+            return None;
         }
         self.top_names.contains(name).then(|| {
             format!("{}#{}", self.path, std::iter::once(name.to_string()).chain(chain).collect::<Vec<_>>().join("."))
         })
+    }
+
+    fn local_of(&self, i: &IdentifierReference<'a>) -> Option<u32> {
+        local_of(self.scoping, i)
+    }
+
+    /// Where `id` is declared, when that is below the module scope.
+    fn declared_inside(&self, id: &BindingIdentifier<'a>) -> Option<u32> {
+        let scoping = self.scoping?;
+        let sym = id.symbol_id.get()?;
+        (scoping.symbol_scope_id(sym) != scoping.root_scope_id()).then_some(id.span.start)
     }
 
     fn res(&mut self, from: &str, spec: &str) -> Option<String> {
@@ -1079,9 +1113,14 @@ impl<'a, 'c> Walker<'a, 'c> {
         let Some(prefix) = self.receivers.get(obj.name.as_str()).cloned() else { return };
         let method = m.property.name.as_str();
         let enclosing = self.current.map(|c| self.symbols[c].id.clone());
+        let scoping = self.scoping;
+        let local_of = |i: &IdentifierReference<'a>| local_of(scoping, i);
         let handler = |e: Option<&Expression<'a>>| match e.map(unwrap) {
             Some(u) if u.func().is_some() || u.class().is_some() => Handler::Node(u.span()),
-            Some(u) => u.ident().map_or(Handler::Other, |n| Handler::Ident(n.to_string())),
+            Some(u) => match u.expr() {
+                Some(Expression::Identifier(i)) => Handler::Ident(i.name.to_string(), local_of(i)),
+                _ => u.ident().map_or(Handler::Other, |n| Handler::Ident(n.to_string(), None)),
+            },
             None => Handler::Other,
         };
         if ROUTE_METHODS.contains(&method) && args.len() >= 2 {
@@ -1141,9 +1180,18 @@ fn require_spec(c: &CallExpression<'_>) -> Option<String> {
     }
 }
 
+/// Where the binding `i` refers to is declared, when that is below the module scope.
+fn local_of(scoping: Option<&Scoping>, i: &IdentifierReference<'_>) -> Option<u32> {
+    let scoping = scoping?;
+    let sym = scoping.get_reference(i.reference_id.get()?).symbol_id()?;
+    (scoping.symbol_scope_id(sym) != scoping.root_scope_id()).then(|| scoping.symbol_span(sym).start)
+}
+
 enum Root<'n> {
     This,
-    Ident(&'n str),
+    /// A name, and where it is declared when it resolves to a binding below the module scope (a parameter, a local
+    /// variable or function). `None` for module-scope and unresolved names, which link by name as in the original.
+    Ident(&'n str, Option<u32>),
 }
 
 fn kind_name(k: SymbolKind) -> &'static str {

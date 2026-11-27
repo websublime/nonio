@@ -17,6 +17,14 @@ Carried over from illuminate (read at commit 7a88df6, 2026-11-26):
   care-app.journey.json: copied from packages/core/test/fixtures.
 - crates/nonio-core/tests/fixtures/recorded-facts.json: produced by
   illuminate's own extractor (see tools/record-facts).
+- crates/nonio-scan/src/{extract,walk,record,resolve,entries,adapters,tables,
+  routes,fallback,hash}.rs: ported from packages/facts/src/facts/*.ts and
+  packages/facts/src/imports.ts (TS/JS extraction).
+- crates/nonio-scan/tests/{extract,imports,resolve,tables}.rs: ported from
+  packages/facts/test/*.test.ts.
+- crates/nonio-scan/tests/fixtures/alias-repo: copied from
+  packages/facts/test/fixtures.
+- tools/compare-facts/dump.ts: calls illuminate's createFactsIndex.
 
 -------------------------------------------------------------------------------
 

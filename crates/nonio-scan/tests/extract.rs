@@ -226,6 +226,31 @@ fn lets_a_nested_function_shadow_a_top_level_one_and_leaves_a_name_declared_twic
     assert_eq!(calls, ["outer → outer.go"]);
 }
 
+/// D16: an edge found by name alone never backs a fact. A parameter or local variable that only shares its name with
+/// an import or a top-level symbol is not that symbol (illuminate links these by name).
+#[test]
+fn never_links_a_parameter_or_local_variable_to_an_import_or_top_level_symbol_of_the_same_name() {
+    let f = facts(
+        &[
+            r#"import { a } from "./lib/a";"#,
+            "export type input<T> = T;",
+            "export function output() {}",
+            "export function f(input: any, a: any) {",
+            "  input.data.trim(); a(); { const output = () => 1; output(); }",
+            r#"  const { a: viaImport } = require("./lib/a");"#,
+            "  viaImport();",
+            "  function inner() { const viaImport = 1; viaImport(); }",
+            "  inner();",
+            "}",
+            "export function g() { a(); output(); }",
+        ]
+        .join("\n"),
+    );
+    let mut calls: Vec<String> = f.calls.iter().map(|c| format!("{} → {}", after_hash(&c.from), c.to)).collect();
+    calls.sort();
+    assert_eq!(calls, ["f → src/lib/a.ts#a", "f → src/x.ts#f.inner", "g → src/lib/a.ts#a", "g → src/x.ts#output"]);
+}
+
 #[test]
 fn marks_components_in_tsx_files() {
     let f = facts_at(

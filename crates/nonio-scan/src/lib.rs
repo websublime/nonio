@@ -61,8 +61,11 @@ pub struct OxcExtractor {
     resolver: OnceCell<RepoResolver>,
     entries: OnceCell<HashMap<String, Vec<PackageEntry>>>,
     /// The last two records per path, so following imports through a file parses it once.
-    records: RefCell<HashMap<String, Vec<(Rc<str>, Rc<Record>)>>>,
+    records: RefCell<HashMap<String, Vec<Cached>>>,
 }
+
+/// A file's text and the record built from it.
+type Cached = (Rc<str>, Rc<Record>);
 
 impl OxcExtractor {
     pub fn new(root: impl AsRef<Path>) -> Self {
