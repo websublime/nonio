@@ -131,7 +131,7 @@ pub fn changes_since(root: &Path, reference: &str) -> Option<Changes> {
         None => found.push((file, what)),
     };
     let diff = git_list(&at, &["diff", "--name-status", "--no-renames", "--relative", "-z", base.commit(), "--", "."]);
-    for pair in diff.chunks_exact(2) {
+    for pair in diff.as_chunks::<2>().0 {
         let what = match pair[0].as_str() {
             "A" => What::New,
             "D" => What::Deleted,
