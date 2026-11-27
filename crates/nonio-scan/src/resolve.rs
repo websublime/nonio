@@ -267,12 +267,12 @@ impl PathsMatcher {
         let mut options = Options::default();
         read_tsconfig(root, &file, &mut options, 0);
         let base_url = options.base_url;
-        let paths = options.paths?;
+        // `baseUrl` alone (no `paths`) still resolves bare specs against it.
+        let (paths, dir) = options.paths.unwrap_or_default();
         let patterns = paths
-            .0
             .into_iter()
             .map(|(pattern, subs)| {
-                let base = base_url.clone().unwrap_or_else(|| paths.1.clone());
+                let base = base_url.clone().unwrap_or_else(|| dir.clone());
                 (pattern, subs.iter().map(|s| base.join(s)).collect())
             })
             .collect::<Vec<_>>();
@@ -336,7 +336,10 @@ fn read_tsconfig(root: &Path, file: &Path, out: &mut Options, depth: usize) {
         if p.is_dir() {
             p = p.join("tsconfig.json");
         } else if p.extension().is_none_or(|x| x != "json") && !p.is_file() {
-            p.set_extension("json");
+            // `../tsconfig.base` means `../tsconfig.base.json`: add the extension, don't replace `.base`.
+            let mut name = p.into_os_string();
+            name.push(".json");
+            p = PathBuf::from(name);
         }
         read_tsconfig(root, &p, out, depth + 1);
     }

@@ -471,3 +471,38 @@ fn falls_back_to_the_regex_reader_for_source_with_syntax_errors() {
     assert_eq!(f.imports.iter().map(|i| i.to.as_str()).collect::<Vec<_>>(), ["src/lib/a.ts"]);
     assert_eq!(f.writes.iter().map(|w| w.table.as_str()).collect::<Vec<_>>(), ["runs"]);
 }
+
+#[test]
+fn reads_a_dynamic_import_of_a_non_ascii_identifier_without_panicking() {
+    let f = facts("export async function go(路径: string) { const m = await import(路径); m.x(); }");
+    assert!(f.imports.is_empty());
+}
+
+#[test]
+fn a_require_inside_a_function_does_not_replace_the_import_of_the_same_name() {
+    let f = facts(
+        &[
+            r#"import { a } from "./lib/a";"#,
+            r#"export function f() { const { a } = require("other"); a(); }"#,
+            "export function g() { a(); }",
+        ]
+        .join("\n"),
+    );
+    let mut calls: Vec<String> = f.calls.iter().map(|c| format!("{} → {}", after_hash(&c.from), c.to)).collect();
+    calls.sort();
+    assert_eq!(calls, ["f → vendor:other", "g → src/lib/a.ts#a"]);
+}
+
+#[test]
+fn a_route_handler_declared_inside_a_function_resolves_to_it() {
+    let f = facts(
+        &[
+            r#"import express from "express";"#,
+            "const app = express();",
+            "export function setup() { function list() {} app.get('/users', list); }",
+        ]
+        .join("\n"),
+    );
+    let handlers: Vec<String> = f.routes.iter().map(|r| r.handler.clone().unwrap_or_default()).collect();
+    assert_eq!(handlers, ["src/x.ts#setup.list"]);
+}

@@ -1,5 +1,7 @@
 //! Regular expressions written the way the original writes them (JavaScript syntax, with lookbehind, lookahead and
-//! backreferences), compiled with `fancy-regex`. `\w` is made ASCII, as it is in JavaScript.
+//! backreferences), compiled with `fancy-regex`. `\w` is made ASCII, as it is in JavaScript. `\b` stays Unicode-aware
+//! (fancy-regex can't turn Unicode off inline, and spelling it as lookarounds would make every pattern backtrack), so
+//! next to a non-ASCII letter (`ñdb.get`) a word boundary can differ from the original's.
 
 use fancy_regex::{Captures, Regex, RegexBuilder};
 

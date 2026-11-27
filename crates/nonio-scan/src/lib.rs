@@ -50,7 +50,9 @@ fn other_backend(path: &str) -> bool {
     path.ends_with(".py") || path.ends_with(".go")
 }
 
-/// Facts for TS/JS files (and `.sql` schemas) of one repo, read with oxc. Files of other languages get `None`.
+/// Facts for TS/JS files (and `.sql` schemas) of one repo, read with oxc. Python and Go files get `None` (another
+/// backend reads them); any other file is read as TS/JS and, when it doesn't parse, through the regex fallback, as in the
+/// original.
 ///
 /// Module resolution reads the repo on disk at `root` (tsconfig, package.json, workspaces), as the original does for
 /// both the working tree and an earlier commit; files the [`RepoView`] has but the disk doesn't resolve through

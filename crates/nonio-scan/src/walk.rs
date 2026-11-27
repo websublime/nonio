@@ -183,14 +183,16 @@ impl<'b, 'a> F<'b, 'a> {
 struct Binding {
     spec: String,
     name: String,
-    /// Where a binding captured inside a function is declared (see [`Root::Ident`]); `None` at the top level.
-    at: Option<u32>,
 }
 
 /// A route handler as the route call names it.
 enum Handler {
     Node(Span),
-    Ident(String, Option<u32>),
+    Ident(String),
+    /// A handler named by a binding below the module scope (name, where it is declared) ...
+    Below(String, u32),
+    /// ... resolved where the route is declared, while the enclosing functions' locals are known.
+    Local(Option<String>),
     Other,
 }
 
@@ -213,7 +215,9 @@ pub struct Walker<'a, 'c> {
     sig_text: HashMap<String, String>,
     used: HashMap<String, u32>,
     cb_count: u32,
-    bindings: HashMap<String, Binding>,
+    /// Imported names by local name and, for a capture inside a function, where it is declared (see
+    /// [`Root::Ident`]).
+    bindings: HashMap<(String, Option<u32>), Binding>,
     top_names: HashSet<String>,
     /// Router local → route prefix.
     receivers: HashMap<String, String>,
@@ -321,7 +325,8 @@ impl<'a, 'c> Walker<'a, 'c> {
                     _ => None,
                 };
                 let id = id.or_else(|| match &r.handler {
-                    Handler::Ident(name, at) => self.target_root(Root::Ident(name, *at), Vec::new()),
+                    Handler::Ident(name) => self.target_root(Root::Ident(name, None), Vec::new()),
+                    Handler::Local(id) => id.clone(),
                     _ => None,
                 });
                 route_fact(&r.method, &r.path, self.path, id.or(r.enclosing))
@@ -355,7 +360,7 @@ impl<'a, 'c> Walker<'a, 'c> {
                 if package_name(&spec).is_some_and(|p| FRAMEWORKS.contains(&p.as_str())) {
                     framework_locals.insert(local.clone());
                 }
-                self.bindings.insert(local, Binding { spec: spec.clone(), name, at: None });
+                self.bindings.insert((local, None), Binding { spec: spec.clone(), name });
             }
         }
         for s0 in body {
@@ -939,7 +944,7 @@ impl<'a, 'c> Walker<'a, 'c> {
         match &d.id {
             BindingPattern::BindingIdentifier(id) => {
                 let at = self.declared_inside(id);
-                self.bindings.insert(id.name.to_string(), Binding { spec, name: "*".into(), at });
+                self.bindings.insert((id.name.to_string(), at), Binding { spec, name: "*".into() });
             }
             BindingPattern::ObjectPattern(o) => {
                 for p in &o.properties {
@@ -950,7 +955,7 @@ impl<'a, 'c> Walker<'a, 'c> {
                     };
                     if let BindingPattern::BindingIdentifier(l) = local {
                         let at = self.declared_inside(l);
-                        self.bindings.insert(l.name.to_string(), Binding { spec: spec.clone(), name: key, at });
+                        self.bindings.insert((l.name.to_string(), at), Binding { spec: spec.clone(), name: key });
                     }
                 }
             }
@@ -1018,7 +1023,7 @@ impl<'a, 'c> Walker<'a, 'c> {
                 return Some(std::iter::once(local.clone()).chain(chain).collect::<Vec<_>>().join("."));
             }
         }
-        if let Some(b) = self.bindings.get(name).filter(|b| at.is_none() || b.at == at).cloned() {
+        if let Some(b) = self.bindings.get(&(name.to_string(), at)).cloned() {
             return self.link_import(&b, chain);
         }
         // Any other parameter or local variable only shares the name with whatever the file declares on top (D16).
@@ -1106,6 +1111,13 @@ impl<'a, 'c> Walker<'a, 'c> {
         (file.into(), name.into(), false)
     }
 
+    fn settle(&mut self, h: Handler) -> Handler {
+        match h {
+            Handler::Below(name, at) => Handler::Local(self.target_root(Root::Ident(&name, Some(at)), Vec::new())),
+            h => h,
+        }
+    }
+
     /// `app.get('/x', h)` on an Express/Hono/Fastify/Koa-router instance; Fastify's `app.route({ method, url, handler })`.
     fn framework_route(&mut self, args: &[Argument<'a>], callee: U<'_, 'a>) {
         let U::M(MemberExpression::StaticMemberExpression(m)) = callee else { return };
@@ -1118,17 +1130,21 @@ impl<'a, 'c> Walker<'a, 'c> {
         let handler = |e: Option<&Expression<'a>>| match e.map(unwrap) {
             Some(u) if u.func().is_some() || u.class().is_some() => Handler::Node(u.span()),
             Some(u) => match u.expr() {
-                Some(Expression::Identifier(i)) => Handler::Ident(i.name.to_string(), local_of(i)),
-                _ => u.ident().map_or(Handler::Other, |n| Handler::Ident(n.to_string(), None)),
+                Some(Expression::Identifier(i)) => match local_of(i) {
+                    Some(at) => Handler::Below(i.name.to_string(), at),
+                    None => Handler::Ident(i.name.to_string()),
+                },
+                _ => u.ident().map_or(Handler::Other, |n| Handler::Ident(n.to_string())),
             },
             None => Handler::Other,
         };
         if ROUTE_METHODS.contains(&method) && args.len() >= 2 {
             if let Some(path) = str_value(arg_expr(args.first())) {
+                let handler = self.settle(handler(arg_expr(args.last())));
                 self.pending.push(PendingRoute {
                     method: method.to_string(),
                     path: prefix + &path,
-                    handler: handler(arg_expr(args.last())),
+                    handler,
                     enclosing,
                 });
             }
@@ -1152,10 +1168,11 @@ impl<'a, 'c> Walker<'a, 'c> {
             };
             if let Some(url) = url {
                 for x in methods.into_iter().flatten() {
+                    let handler = self.settle(handler(props.get("handler").copied()));
                     self.pending.push(PendingRoute {
                         method: x,
                         path: format!("{prefix}{url}"),
-                        handler: handler(props.get("handler").copied()),
+                        handler,
                         enclosing: enclosing.clone(),
                     });
                 }

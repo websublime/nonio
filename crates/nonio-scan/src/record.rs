@@ -74,12 +74,13 @@ fn literal(text: &str) -> Option<&str> {
     if b.len() < 2 {
         return None;
     }
-    let (q, inner) = (b[0], &text[1..text.len() - 1]);
-    let ok = match q {
-        b'\'' | b'"' => b[b.len() - 1] == q && !inner.contains(['\'', '"', '\n']),
-        b'`' => b[b.len() - 1] == b'`' && !inner.contains(['`', '$', '\n']),
-        _ => false,
-    };
+    let q = b[0];
+    if !matches!(q, b'\'' | b'"' | b'`') || b[b.len() - 1] != q {
+        return None;
+    }
+    // Both ends are ASCII quotes, so slicing them off stays on char boundaries.
+    let inner = &text[1..text.len() - 1];
+    let ok = if q == b'`' { !inner.contains(['`', '$', '\n']) } else { !inner.contains(['\'', '"', '\n']) };
     ok.then_some(inner)
 }
 

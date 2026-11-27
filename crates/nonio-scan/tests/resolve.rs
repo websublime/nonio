@@ -77,6 +77,22 @@ fn resolves_files_not_on_disk_through_relative_paths_and_tsconfig_paths() {
     assert_eq!(resolve_specifier("apps/web/src/main.ts", "@shared/slugify", &disk, Some(&repo)), None);
 }
 
+/// `extends` without `.json` names `<that>.json`, and a `baseUrl` without `paths` still resolves bare specs, as
+/// TypeScript (and get-tsconfig in the original) read them.
+#[test]
+fn reads_extends_without_json_and_base_url_alone() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    fs::create_dir_all(root.join("apps/web/src")).unwrap();
+    fs::write(root.join("tsconfig.base.json"), r#"{ "compilerOptions": { "baseUrl": "." } }"#).unwrap();
+    fs::write(root.join("apps/web/tsconfig.json"), r#"{ "extends": "../../tsconfig.base" }"#).unwrap();
+    let repo = RepoResolver::new(root);
+    let planned: HashSet<&str> = ["lib/util.ts"].into();
+    let exists = |p: &str| planned.contains(p);
+    let r = resolve_specifier("apps/web/src/main.ts", "lib/util", &exists, Some(&repo));
+    assert_eq!(r.as_deref(), Some("lib/util.ts"));
+}
+
 /// The working tree, read from disk.
 struct Disk(PathBuf);
 
