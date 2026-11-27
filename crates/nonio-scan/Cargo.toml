@@ -24,6 +24,8 @@ indexmap.workspace = true
 oxc_resolver = "=11.24.2"
 # HTML of Vue templates (D28); MIT. Only its parser and scanner are used.
 vue-compiler-core = { version = "=0.1.0", default-features = false }
+# Java, Kotlin and Python (D14); Apache-2.0. Beta: pinned, and every edge is checked again in src/graph.rs.
+code2graph = { version = "=0.0.0-beta.17", default-features = false, features = ["java", "kotlin", "python"] }
 
 [dev-dependencies]
 pretty_assertions.workspace = true

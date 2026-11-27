@@ -8,12 +8,15 @@
 //! Vue single-file components are read with the same backend (D28): the `<script>` blocks in place and the template
 //! lowered to JSX in the same program (see [`parse_sfc`]); template calls belong to the symbol `<path>#<template>`.
 //!
-//! Python, Go, Java and Kotlin get no facts here yet (they come with the `code2graph` adapter).
+//! Java, Kotlin and Python are read with `code2graph`'s precise tier behind [`GraphExtractor`] (D14), whose edges
+//! are checked again so none rests on a name match (D16). [`Scanner`] sends each file to its backend. Go gets no
+//! facts yet.
 
 mod adapters;
 mod entries;
 mod extract;
 mod fallback;
+mod graph;
 mod hash;
 mod re;
 mod record;
@@ -33,6 +36,7 @@ use nonio_facts::{Extractor, FileFacts, RepoView};
 pub use entries::{package_entries, PackageEntry};
 pub use extract::{extract_facts, ExtractContext, RoutePattern};
 pub use fallback::strip_comments;
+pub use graph::{graph_facts, is_graph_file, GraphExtractor, GRAPH_EXTENSIONS};
 pub use hash::{hash_text, squash};
 pub use record::{module_record, ExportTarget, ModuleRecord};
 pub use resolve::{normalize_path, package_name, resolve_path, resolve_specifier, workspace_dirs, RepoResolver};
@@ -49,14 +53,14 @@ pub fn is_code_file(path: &str) -> bool {
     CODE_EXTENSIONS.iter().any(|e| path.ends_with(e))
 }
 
-/// Files another backend reads (Python and Go in the original, with tree-sitter).
+/// Files another backend reads: Java, Kotlin and Python ([`GraphExtractor`]), and Go.
 fn other_backend(path: &str) -> bool {
-    path.ends_with(".py") || path.ends_with(".go")
+    is_graph_file(path) || path.ends_with(".go")
 }
 
-/// Facts for TS/JS files (and `.sql` schemas) of one repo, read with oxc. Python and Go files get `None` (another
-/// backend reads them); any other file is read as TS/JS and, when it doesn't parse, through the regex fallback, as in the
-/// original.
+/// Facts for TS/JS files (and `.sql` schemas) of one repo, read with oxc. Java, Kotlin, Python and Go files get
+/// `None` (another backend reads them); any other file is read as TS/JS and, when it doesn't parse, through the
+/// regex fallback, as in the original.
 ///
 /// Module resolution reads the repo on disk at `root` (tsconfig, package.json, workspaces), as the original does for
 /// both the working tree and an earlier commit; files the [`RepoView`] has but the disk doesn't resolve through
@@ -142,5 +146,38 @@ impl Extractor for OxcExtractor {
             self.remember(path, Rc::from(source), Rc::new(record));
         }
         Some(facts)
+    }
+}
+
+/// Every backend of one repo: Java, Kotlin and Python files go to [`GraphExtractor`], the rest to [`OxcExtractor`].
+pub struct Scanner {
+    oxc: OxcExtractor,
+    graph: GraphExtractor,
+}
+
+impl Scanner {
+    /// `files` are the repo's files (e.g. from `list_repo_files`); the graph backend resolves calls across them.
+    pub fn new<I, S>(root: impl AsRef<Path>, files: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        Self { oxc: OxcExtractor::new(root), graph: GraphExtractor::new(files) }
+    }
+
+    /// With route patterns confirmed for this repo (TS/JS only for now).
+    pub fn with_routes(mut self, routes: Vec<RoutePattern>) -> Self {
+        self.oxc = self.oxc.with_routes(routes);
+        self
+    }
+}
+
+impl Extractor for Scanner {
+    fn extract(&self, repo: &dyn RepoView, path: &str, source: &str) -> Option<FileFacts> {
+        if is_graph_file(path) {
+            self.graph.extract(repo, path, source)
+        } else {
+            self.oxc.extract(repo, path, source)
+        }
     }
 }

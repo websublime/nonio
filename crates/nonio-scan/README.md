@@ -9,7 +9,34 @@ let ex = nonio_scan::OxcExtractor::new(root);
 let facts = ex.extract("src/app.ts", &source); // Some(FileFacts); None for files it does not handle
 ```
 
-`.py` and `.go` files return `None` (they belong to the `code2graph` adapter).
+`.java`, `.kt`, `.kts` and `.py` files return `None` here: they belong to `GraphExtractor` (below). `.go` files get
+no facts yet. `Scanner` sends each file to its backend:
+
+```rust
+let scanner = nonio_scan::Scanner::new(root, files); // files: the repo's files, e.g. from list_repo_files
+```
+
+## Java, Kotlin and Python (D14)
+
+`GraphExtractor` reads these files with `code2graph` 0.0.0-beta.17 (Apache-2.0), tier `default_scoped`, and resolves
+them together, so a call crosses files; the result is kept until one of the texts changes. Symbol ids follow the
+contract: `<path>#<Type.member>` (`OrderService.java#OrderService.create`, `main.py#get_user`, `Taxes.kt#formatAmount`);
+Java overloads are one symbol, as `code2graph` keeps the first. Imports are repo files, or `vendor:<package>`.
+
+The precise tier still makes three kinds of edge that rest on a name, measured in `tests/graph.rs`, and the adapter
+drops them (D16):
+
+| `code2graph` rule | Wrong edge it made | Kept only when |
+|---|---|---|
+| A qualified call is a path lookup | `def notify(client): client.send()` → `app/client.py#send`; Kotlin `billing.charge()` on a constructor property → package `billing` | the receiver is an import, a type, or a name the file doesn't bind |
+| An unbound name falls back to the package | Java `this.store.persist()` (read without its receiver) → the one `persist` in the package | the callee is a class, a top-level function, a member of an enclosing type (or one it extends), or a static import |
+| Types are looked up by bare name | `m: Mailer` (imported from `b`) → `c.Mailer.dispatch`, when `c` is read first | the type name resolves where it is written (same file, explicit import, same package) to the member's owner |
+
+On the phase 2 fixture (`tests/fixtures/spike05`, the spike of `05-spike-crates.md` rebuilt with its decoys) the
+scanner finds 12 of the 20 calls, none wrong. The misses: fields and constructor properties as receivers (6, D15),
+`new Order(…)` in Java (the class and its constructor share the name), and a Python local it constructs.
+
+Routes and entries for these languages come later (phase 4).
 
 ## Vue single-file components (D28)
 
