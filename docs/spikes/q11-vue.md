@@ -130,8 +130,8 @@ O `load()` dentro de `refresh` fica sem aresta nos dois casos, como em TS: `load
    `parser/elements/{v_for,v_slot}.rs`). Ao contrário do crate, pôr o setup no scope do módulo e não numa arrow, para
    o `Walker` ver `refresh` como símbolo de topo (`OrderList.vue#refresh`) e não como local (D16).
 4. **Filtrar nós sintéticos** (span vazio) antes de emitir factos.
-5. **De quem é uma chamada do template.** Implementado com a proposta (símbolo `<path>#<template>`), à espera de
-   confirmação do Miguel. Era por decidir: do ficheiro (como as chamadas de topo hoje) ou de um símbolo
+5. **De quem é uma chamada do template.** Decidido pelo Miguel (2026-11-27): símbolo `<path>#<template>`, como
+   implementado. Era por decidir: do ficheiro (como as chamadas de topo hoje) ou de um símbolo
    sintético `<template>`. Proposta: símbolo `<path>#<template>` com o span do bloco, para o mapa poder mostrar
    "o template chama `refresh`".
 6. **NOTICE:** o que for portado do `vue_oxlint_jsx` leva o aviso MIT de Liang Mi (e o que ele traz de
