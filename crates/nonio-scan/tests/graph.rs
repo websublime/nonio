@@ -403,3 +403,27 @@ fn a_package_imported_whole_names_its_types() {
     let calls: Vec<&str> = facts["a/S.java"].calls.iter().map(|c| c.to.as_str()).collect();
     assert_eq!(calls, ["c/Only.java#Only.describe"]);
 }
+
+#[test]
+fn spring_routes_of_the_fixture() {
+    let root = root();
+    let all = files(&root);
+    let scanner = Scanner::new(&root, all.iter().cloned());
+    let repo = Disk(root.clone());
+    let mut got = Vec::new();
+    for f in all.iter().filter(|f| f.ends_with(".java") || f.ends_with(".kt")) {
+        let text = repo.text(f).unwrap();
+        let facts = scanner.extract(&repo, f, &text).unwrap();
+        for r in &facts.routes {
+            assert!(facts.entries.iter().any(|e| e.label == format!("{} {}", r.method, r.path)));
+            got.push((r.id.clone(), r.handler.clone().unwrap_or_default()));
+        }
+    }
+    assert_eq!(
+        got,
+        vec![
+            ("route:POST /api/orders".into(), j("OrderController.java#OrderController.create")),
+            ("route:POST /api/invoices/{}".into(), k("InvoiceController.kt#InvoiceController.issue")),
+        ]
+    );
+}

@@ -26,6 +26,10 @@ oxc_resolver = "=11.24.2"
 vue-compiler-core = { version = "=0.1.0", default-features = false }
 # Java, Kotlin and Python (D14); Apache-2.0. Beta: pinned, and every edge is checked again in src/graph.rs.
 code2graph = { version = "=0.0.0-beta.17", default-features = false, features = ["java", "kotlin", "python"] }
+# Spring routes (annotations) read from the syntax tree; the same versions code2graph already builds. MIT.
+tree-sitter = "=0.26.13"
+tree-sitter-java = "=0.23.5"
+tree-sitter-kotlin-ng = "=1.1.0"
 
 [dev-dependencies]
 pretty_assertions.workspace = true
