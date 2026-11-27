@@ -9,7 +9,7 @@ use std::path::Path;
 use std::sync::LazyLock;
 
 use indexmap::{IndexMap, IndexSet};
-use nonio_facts::{client_sites, find_fetch_sites, match_route, EntryKind, SourceFile, SymbolKind};
+use nonio_facts::{client_sites, find_fetch_sites, match_route, wrapper_called, EntryKind, SourceFile, SymbolKind};
 use regex::Regex;
 
 use crate::changes::recent_changes;
@@ -149,8 +149,11 @@ pub fn head_start(root: &Path) -> HeadStart {
     for f in &facts {
         sites.extend(client_sites(f, |id| clients.get(id).map(|c| (*c).clone())));
     }
+    let calls: HashMap<&str, &[nonio_facts::CallFact]> =
+        facts.iter().map(|f| (f.path.as_str(), &f.calls[..])).collect();
     let requests: Vec<String> = sites
         .into_iter()
+        .filter(|site| wrapper_called(site, calls.get(site.file.as_str()).copied().unwrap_or(&[])))
         .filter_map(|site| {
             let (route, _) = match_route(&site.method, &site.url, site.exact, &routes)?;
             Some(format!(

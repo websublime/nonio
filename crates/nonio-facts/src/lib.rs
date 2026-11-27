@@ -9,7 +9,9 @@ mod glob;
 mod settle;
 
 pub use contract::*;
-pub use fetches::{client_sites, find_fetch_sites, match_route, url_path, FetchSite, MatchConfidence, SourceFile};
+pub use fetches::{
+    client_sites, find_fetch_sites, match_route, url_path, wrapper_called, FetchSite, MatchConfidence, SourceFile,
+};
 pub use glob::matches_any;
 pub use settle::{settle_calls, symbol_names};
 

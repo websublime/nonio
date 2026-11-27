@@ -10,7 +10,7 @@ use std::sync::OnceLock;
 
 use regex::Regex;
 
-use crate::contract::{ClientFact, FileFacts, RouteFact, SymbolFact, SymbolKind};
+use crate::contract::{CallFact, ClientFact, FileFacts, RouteFact, SymbolFact, SymbolKind};
 
 /// A call that sends an HTTP request to a URL known (at least in part) from the source text.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -27,6 +27,9 @@ pub struct FetchSite {
     /// Wrapper or client the call goes through (`request`, `vendor:axios`, `src/http.ts#api`), `None` for a direct
     /// fetch.
     pub via: Option<String>,
+    /// For a call to a wrapper: the wrapper's symbol id. The call is found by its name in the text, so it counts
+    /// only where a call fact (resolved by scope or import) shows the site calling that symbol ([`wrapper_called`]).
+    pub wrapper: Option<String>,
 }
 
 /// A source file with its symbols, as [`find_fetch_sites`] reads it.
@@ -291,7 +294,7 @@ pub fn find_fetch_sites(files: &[SourceFile<'_>]) -> Vec<FetchSite> {
                     let method = fixed.or_else(|| method_in(src, s.end, end)).unwrap_or_else(|| "GET".into());
                     let via = (client != "fetch").then_some(client);
                     sites.push((
-                        FetchSite { file: f.path.into(), from, method, url, exact: s.holes == 0, via },
+                        FetchSite { file: f.path.into(), from, method, url, exact: s.holes == 0, via, wrapper: None },
                         whole.start(),
                     ));
                 }
@@ -343,7 +346,15 @@ pub fn find_fetch_sites(files: &[SourceFile<'_>]) -> Vec<FetchSite> {
                     .unwrap_or_else(|| "GET".into());
                 let exact = s.holes == 0 && w.prefix.is_empty();
                 sites.push((
-                    FetchSite { file: f.path.into(), from, method, url, exact, via: Some(m[1].to_string()) },
+                    FetchSite {
+                        file: f.path.into(),
+                        from,
+                        method,
+                        url,
+                        exact,
+                        via: Some(m[1].to_string()),
+                        wrapper: Some(w.symbol.clone()),
+                    },
                     whole.start(),
                 ));
             }
@@ -377,10 +388,22 @@ pub fn client_sites(facts: &FileFacts, client: impl Fn(&str) -> Option<ClientFac
                 url,
                 exact,
                 via: Some(r.via.clone()),
+                wrapper: None,
             });
         }
     }
     out
+}
+
+/// Whether a site holds by the facts: a direct call always; a call to a wrapper only when `calls` (the site file's
+/// calls, settled) has one from the site's symbol (or code inside it) to the wrapper's symbol. A wrapper call is found
+/// by name in the text, and a name match is never proof (D16).
+pub fn wrapper_called(site: &FetchSite, calls: &[CallFact]) -> bool {
+    let Some(w) = &site.wrapper else { return true };
+    w.contains('#')
+        && calls.iter().any(|c| {
+            &c.to == w && (c.from == site.from || c.from.strip_prefix(&site.from).is_some_and(|r| r.starts_with('.')))
+        })
 }
 
 /// How sure a route match is.
@@ -478,7 +501,8 @@ mod tests {
                 method: "POST".into(),
                 url: "/api/p/{}/convert".into(),
                 exact: false,
-                via: None
+                via: None,
+                wrapper: None
             }]
         );
     }

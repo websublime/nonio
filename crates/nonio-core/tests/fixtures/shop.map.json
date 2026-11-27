@@ -255,6 +255,34 @@
           "text": "axios.post('/api/invoices/1/pay')"
         }
       ]
+    },
+    {
+      "id": "recent",
+      "area": "ui",
+      "kind": "entry",
+      "name": "Recent orders",
+      "symbol": "web/src/components/Recent.vue#recent",
+      "evidence": [
+        {
+          "file": "web/src/components/Recent.vue",
+          "line": 5,
+          "text": "request('/orders')"
+        }
+      ]
+    },
+    {
+      "id": "look",
+      "area": "ui",
+      "kind": "entry",
+      "name": "Lookalike",
+      "symbol": "web/src/components/Lookalike.vue#look",
+      "evidence": [
+        {
+          "file": "web/src/components/Lookalike.vue",
+          "line": 9,
+          "text": "request('/orders')"
+        }
+      ]
     }
   ],
   "edges": [
@@ -451,6 +479,34 @@
           "file": "web/src/components/FakePay.tsx",
           "line": 4,
           "text": "axios.post('/api/invoices/1/pay')"
+        }
+      ]
+    },
+    {
+      "id": "wrapper",
+      "from": "recent",
+      "to": "olist",
+      "kind": "request",
+      "label": "loads",
+      "evidence": [
+        {
+          "file": "web/src/components/Recent.vue",
+          "line": 5,
+          "text": "request('/orders')"
+        }
+      ]
+    },
+    {
+      "id": "wrapper-namesake",
+      "from": "look",
+      "to": "olist",
+      "kind": "request",
+      "label": "loads",
+      "evidence": [
+        {
+          "file": "web/src/components/Lookalike.vue",
+          "line": 9,
+          "text": "request('/orders')"
         }
       ]
     }

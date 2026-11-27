@@ -41,7 +41,9 @@ fn component_to_controller_arrows_are_confirmed_by_facts() {
     let r = report();
     let got: HashMap<&str, (Status, Option<Proof>, Vec<String>)> =
         r.edges.iter().map(|(id, c)| (id.as_str(), (c.status, c.proof, c.reasons.clone()))).collect();
-    for id in ["vue-java", "tsx-kotlin", "nuxt", "next", "through-client", "four-hops", "bff", "client-instance"] {
+    for id in
+        ["vue-java", "tsx-kotlin", "nuxt", "next", "through-client", "four-hops", "bff", "client-instance", "wrapper"]
+    {
         assert_eq!(got[id], (Status::Confirmed, Some(Proof::Fact), vec![]), "{id}");
     }
     assert!(r.nodes.values().all(|n| n.status == Status::Confirmed), "{:?}", r.nodes);
@@ -116,4 +118,13 @@ fn http_clients_are_linked_by_binding_not_by_name() {
     assert_eq!(r.edges["unknown-prefix"].status, Status::Unconfirmed);
     // A local object named `axios` is not the library.
     assert_eq!(r.edges["not-axios"].status, Status::Unconfirmed);
+}
+
+#[test]
+fn a_wrapper_counts_only_where_a_call_fact_reaches_it() {
+    let r = report();
+    // Recent.vue#recent calls the imported `request`, which fetches `/api${path}`: GET /api/orders.
+    assert_eq!(r.edges["wrapper"].status, Status::Confirmed);
+    // Lookalike.vue imports the same module but calls its own `request`: same name, not the wrapper.
+    assert_eq!(r.edges["wrapper-namesake"].status, Status::Unconfirmed);
 }
