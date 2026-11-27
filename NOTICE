@@ -44,6 +44,10 @@ Carried over from illuminate (read at commit 7a88df6, 2026-11-26):
   packages/server/src/{explainer,fixes,reply}.ts.
 - crates/nonio-server/tests/{explainer,fixes,reply}.rs: ported from
   packages/server/test/{workflows,proposals,reply,changes}.test.ts.
+- crates/nonio-server/src/{server,step}.rs: ported from
+  packages/server/src/{server,step,git}.ts.
+- crates/nonio-server/tests/{server,offers,selection,stop}.rs: ported from
+  packages/server/test/{server,offers,selection,stop}.test.ts.
 - tools/record-prompts/*.ts: call illuminate's prompt and schema modules.
 
 The Vue template lowering in crates/nonio-scan/src/vue.rs is ported from
