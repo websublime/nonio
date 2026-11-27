@@ -1,0 +1,21 @@
+[package]
+name = "nonio-core"
+description = "The nonio map format and the checker that decides which of a map's claims the code backs."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+nonio-facts = { path = "../nonio-facts" }
+serde.workspace = true
+serde_json.workspace = true
+regex.workspace = true
+sha2.workspace = true
+indexmap.workspace = true
+
+[dev-dependencies]
+sha2.workspace = true
+tempfile.workspace = true
+pretty_assertions.workspace = true

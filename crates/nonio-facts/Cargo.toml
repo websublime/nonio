@@ -1,0 +1,14 @@
+[package]
+name = "nonio-facts"
+description = "The facts contract of nonio: what the scanner extracts from code and the checker relies on."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+regex.workspace = true
+globset.workspace = true

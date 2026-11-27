@@ -1,0 +1,335 @@
+{
+  "version": 1,
+  "question": "What does staff go through to convert a patient?",
+  "view": "journey",
+  "pages": [
+    {
+      "id": "patient",
+      "name": "Patient page",
+      "file": "src/ui/PatientPage.tsx",
+      "regions": [
+        {
+          "id": "header",
+          "slot": "top",
+          "label": "Header",
+          "file": "src/ui/PatientHeader.tsx",
+          "elements": [
+            {
+              "kind": "button",
+              "text": "Mark as converted"
+            }
+          ]
+        },
+        {
+          "id": "links",
+          "slot": "left",
+          "label": "Links",
+          "file": "src/ui/PatientSidebar.tsx",
+          "elements": [
+            {
+              "kind": "link",
+              "text": "All patients"
+            },
+            {
+              "kind": "link",
+              "text": "Leads"
+            },
+            {
+              "kind": "link",
+              "text": "Settings"
+            }
+          ]
+        },
+        {
+          "id": "notes",
+          "slot": "main",
+          "label": "Notes",
+          "file": "src/ui/PatientNotes.tsx",
+          "elements": [
+            {
+              "kind": "heading",
+              "text": "Notes"
+            },
+            {
+              "kind": "field",
+              "text": "Add a note"
+            },
+            {
+              "kind": "button",
+              "text": "Save note"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "areas": [
+    {
+      "id": "page",
+      "label": "On the patient page"
+    },
+    {
+      "id": "after",
+      "label": "Afterwards"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "j1",
+      "area": "page",
+      "kind": "screen",
+      "name": "Patient page",
+      "symbol": "src/ui/PatientHeader.tsx#PatientHeader",
+      "explain": {
+        "concept": "The top of a patient's page, where staff see the button to convert a lead."
+      },
+      "evidence": [
+        {
+          "file": "src/ui/PatientHeader.tsx",
+          "line": 2,
+          "text": "export function PatientHeader"
+        }
+      ],
+      "screen": {
+        "kind": "wireframe",
+        "page": "patient",
+        "region": "header",
+        "highlight": "Mark as converted"
+      }
+    },
+    {
+      "id": "j2",
+      "area": "page",
+      "kind": "action",
+      "name": "Marks the lead as converted",
+      "explain": {
+        "concept": "Staff press the button. Nothing on the page changes to say it worked."
+      },
+      "evidence": [
+        {
+          "file": "src/ui/PatientHeader.tsx",
+          "line": 4,
+          "text": "Mark as converted"
+        }
+      ]
+    },
+    {
+      "id": "j3",
+      "area": "after",
+      "kind": "external",
+      "name": "Patient gets the welcome email",
+      "explain": {
+        "concept": "The patient receives a welcome email, if a rule says to send one."
+      },
+      "evidence": [
+        {
+          "file": "src/automations/evaluate.ts",
+          "line": 6,
+          "text": "welcome_email"
+        }
+      ]
+    },
+    {
+      "id": "j4",
+      "area": "page",
+      "kind": "action",
+      "name": "Saves a note",
+      "branch": "Writes a note instead",
+      "symbol": "src/ui/PatientNotes.tsx#PatientNotes",
+      "explain": {
+        "concept": "Staff can keep a note on the patient without converting them."
+      },
+      "evidence": [
+        {
+          "file": "src/ui/PatientNotes.tsx",
+          "line": 7,
+          "text": "Save note"
+        }
+      ]
+    },
+    {
+      "id": "j5",
+      "area": "page",
+      "kind": "action",
+      "name": "Opens the leads list",
+      "branch": "Goes back to the lists",
+      "explain": {
+        "concept": "The links down the side take staff away from this patient."
+      },
+      "evidence": [
+        {
+          "file": "src/ui/PatientSidebar.tsx",
+          "line": 6,
+          "text": "href=\"/leads\""
+        }
+      ]
+    },
+    {
+      "id": "j6",
+      "area": "after",
+      "kind": "external",
+      "name": "No email arrives",
+      "branch": "No welcome rule",
+      "explain": {
+        "concept": "Without a rule that says to send a welcome email, the patient hears nothing."
+      },
+      "evidence": [
+        {
+          "file": "src/automations/evaluate.ts",
+          "line": 6,
+          "text": "rule.action === 'welcome_email'"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "ja",
+      "from": "j1",
+      "to": "j2",
+      "label": "taps the button",
+      "evidence": [
+        {
+          "file": "src/ui/PatientHeader.tsx",
+          "line": 4,
+          "text": "onClick={onConvert}"
+        }
+      ]
+    },
+    {
+      "id": "jb",
+      "from": "j2",
+      "to": "j3",
+      "label": "that night at the earliest",
+      "evidence": [
+        {
+          "file": "src/jobs/nightly.ts",
+          "line": 5,
+          "text": "schedule = '0 2 * * *'"
+        }
+      ]
+    },
+    {
+      "id": "jc",
+      "from": "j1",
+      "to": "j4",
+      "label": "types a note",
+      "branch": "Writes a note instead",
+      "evidence": [
+        {
+          "file": "src/ui/PatientNotes.tsx",
+          "line": 6,
+          "text": "placeholder=\"Add a note\""
+        }
+      ]
+    },
+    {
+      "id": "jd",
+      "from": "j4",
+      "to": "j1",
+      "label": "stays on the page",
+      "branch": "Writes a note instead",
+      "evidence": [
+        {
+          "file": "src/ui/PatientPage.tsx",
+          "line": 14,
+          "text": "<PatientNotes />"
+        }
+      ]
+    },
+    {
+      "id": "je",
+      "from": "j1",
+      "to": "j5",
+      "label": "clicks Leads",
+      "branch": "Goes back to the lists",
+      "evidence": [
+        {
+          "file": "src/ui/PatientSidebar.tsx",
+          "line": 6,
+          "text": "<a href=\"/leads\">Leads</a>"
+        }
+      ]
+    },
+    {
+      "id": "jf",
+      "from": "j2",
+      "to": "j6",
+      "label": "if no rule says to send one",
+      "branch": "No welcome rule",
+      "evidence": [
+        {
+          "file": "src/automations/evaluate.ts",
+          "line": 5,
+          "text": "trigger: 'converted'"
+        }
+      ]
+    }
+  ],
+  "tour": [
+    {
+      "id": "t1",
+      "title": "Converting a patient",
+      "text": "Staff open a patient's page and press one button. That is the whole of what they do.",
+      "focus": {
+        "nodes": [
+          "j1",
+          "j2"
+        ]
+      }
+    },
+    {
+      "id": "t2",
+      "title": "What the patient sees",
+      "text": "The welcome email doesn't go out right away: it waits for a job that runs at 2:00 am.",
+      "focus": {
+        "nodes": [
+          "j3"
+        ],
+        "edges": [
+          "jb"
+        ]
+      }
+    },
+    {
+      "id": "t3",
+      "title": "Writing a note instead",
+      "text": "Staff can also keep a note on the patient. Saving it leaves them on the same page, where they can still convert the patient.",
+      "focus": {
+        "nodes": [
+          "j4"
+        ],
+        "edges": [
+          "jc",
+          "jd"
+        ]
+      }
+    },
+    {
+      "id": "t4",
+      "title": "Leaving for the lists",
+      "text": "The links down the side take staff back to the leads, away from this patient.",
+      "focus": {
+        "nodes": [
+          "j5"
+        ],
+        "edges": [
+          "je"
+        ]
+      }
+    },
+    {
+      "id": "t5",
+      "title": "When no rule says to send it",
+      "text": "The email only goes out if a rule for converted patients says to send one. Without it, the patient hears nothing.",
+      "focus": {
+        "nodes": [
+          "j6"
+        ],
+        "edges": [
+          "jf"
+        ]
+      }
+    }
+  ]
+}
