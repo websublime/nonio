@@ -78,7 +78,7 @@ pub struct ChannelOptions {
     /// Port for the page server (default 4317, or the next free one; 0 for any).
     pub port: u16,
     /// The built viewer, for the page server.
-    pub viewer: Option<PathBuf>,
+    pub viewer: Option<crate::server::Viewer>,
     /// The profile to use whatever the client says (`NONIO_HOST`).
     pub forced_host: Option<String>,
 }

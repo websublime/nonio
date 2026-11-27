@@ -60,6 +60,8 @@ Carried over from illuminate (read at commit 7a88df6, 2026-11-26):
 - viewer/: packages/viewer (the web viewer, React Flow + ELK), with its tests,
   renamed for nonio (token header, storage keys, wording); viewer/src/model.d.ts
   was generated from packages/core and packages/server types. The logo is new.
+- crates/nonio-cli/src/main.rs: after packages/server/src/cli.ts and runChannel
+  in packages/server/src/channel.ts.
 - crates/nonio-server/examples/preview.rs: after packages/server/scripts/preview.ts.
 - tools/record-prompts/*.ts: call illuminate's prompt and schema modules.
 

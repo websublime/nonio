@@ -1,0 +1,22 @@
+[package]
+name = "nonio-cli"
+description = "The nonio binary: `nonio mcp` runs nonio as an MCP server over stdio, with the viewer built in."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "nonio"
+path = "src/main.rs"
+
+[dependencies]
+nonio-server = { path = "../nonio-server" }
+rmcp = { version = "3.12", features = ["server", "transport-io"] }
+rust-embed = "8.14"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "io-std"] }
+
+[dev-dependencies]
+serde_json.workspace = true
+tempfile.workspace = true

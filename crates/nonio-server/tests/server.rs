@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use common::web::*;
 use common::*;
-use nonio_server::server::{start_server, NonioServer, ServerOptions, TOKEN_HEADER};
+use nonio_server::server::{start_server, NonioServer, ServerOptions, Viewer, TOKEN_HEADER};
 use serde_json::{json, Value};
 
 fn agent() -> Arc<ScriptedAgent> {
@@ -228,7 +228,7 @@ async fn serves_the_viewer_its_assets_and_index_for_everything_else() {
     std::fs::write(viewer.path().join("index.html"), "<!doctype html>the viewer").unwrap();
     std::fs::write(viewer.path().join("assets/app.js"), "console.log(1)").unwrap();
     let mut o = ServerOptions::new(dir.path(), ScriptedAgent::new(vec![]));
-    o.viewer = Some(viewer.path().to_path_buf());
+    o.viewer = Some(Viewer::Dir(viewer.path().to_path_buf()));
     let server = start_server(o).await.unwrap();
     let page = raw(server.port, "GET", "/m/a-map", &[], None).await;
     assert!(page.text.contains("the viewer"));
@@ -241,6 +241,31 @@ async fn serves_the_viewer_its_assets_and_index_for_everything_else() {
         assert!(raw(server.port, "GET", path, &[], None).await.text.contains("the viewer"), "{path}");
     }
     assert_eq!(raw(server.port, "POST", "/m/a-map", &[], None).await.status, 405);
+    server.close().await;
+}
+
+#[tokio::test]
+async fn serves_a_viewer_built_into_the_binary_the_same_way() {
+    let dir = copy_care_app();
+    let mut o = ServerOptions::new(dir.path(), ScriptedAgent::new(vec![]));
+    o.viewer = Some(Viewer::Files(Arc::new(|rel: &str| match rel {
+        "index.html" => Some(b"<!doctype html>built in".as_slice().into()),
+        "assets/app.css" => Some(b"body{}".as_slice().into()),
+        _ => None,
+    })));
+    let server = start_server(o).await.unwrap();
+    assert!(raw(server.port, "GET", "/", &[], None).await.text.contains("built in"));
+    let css = raw(server.port, "GET", "/assets/app.css", &[], None).await;
+    assert_eq!(css.text, "body{}");
+    assert!(css.headers.contains("text/css"));
+    assert!(raw(server.port, "GET", "/assets/missing.js", &[], None).await.text.contains("built in"));
+    server.close().await;
+
+    // Built without the viewer: the page says how to build it.
+    let mut o = ServerOptions::new(dir.path(), ScriptedAgent::new(vec![]));
+    o.viewer = Some(Viewer::Files(Arc::new(|_: &str| None)));
+    let server = start_server(o).await.unwrap();
+    assert!(raw(server.port, "GET", "/", &[], None).await.text.contains("npm run build"));
     server.close().await;
 }
 
