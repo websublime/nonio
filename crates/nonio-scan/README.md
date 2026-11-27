@@ -9,8 +9,26 @@ let ex = nonio_scan::OxcExtractor::new(root);
 let facts = ex.extract("src/app.ts", &source); // Some(FileFacts); None for files it does not handle
 ```
 
-`.py` and `.go` files return `None` (they belong to the `code2graph` adapter). Vue single-file components are not
-handled yet (open question Q11).
+`.py` and `.go` files return `None` (they belong to the `code2graph` adapter).
+
+## Vue single-file components (D28)
+
+A `.vue` file is read as one oxc program, with every position an offset in the `.vue`:
+
+- The `<script>` and `<script setup>` blocks are parsed in place: the text outside them is blanked, so the bindings of
+  `<script setup>` are top-level symbols (`OrderList.vue#refresh`) and their calls are found as in a TS file.
+- The template is read with `vue-compiler-core` and lowered to JSX in the same program (ported from `vue_oxlint_jsx`,
+  MIT, see NOTICE), so its names resolve by scope against the script: `v-for` variables and slot props are
+  parameters of arrows around their element, and `v-if` sits outside the `v-for`. Its calls belong to the symbol
+  `<path>#<template>`, whose span is the `<template>` block. A handler given by reference (`@click="refresh"`) counts
+  as a call, as Vue calls it.
+- Without `<script setup>` (Options API) the template sees the component instance, not the module, so it gives no
+  calls rather than calls linked by name (D16). A template in another language (`lang="pug"`), an expression that
+  doesn't parse (that expression only) and a `v-for`/`v-slot` whose variables don't parse (that element) are left
+  out. Markup that doesn't parse (an unclosed tag) falls back to imports only, as any file that doesn't parse.
+
+Tested in `tests/vue.rs`, which ports the Q11 spike harness and its 16 expectations
+(`docs/spikes/q11-vue.md`).
 
 ## How it is checked
 

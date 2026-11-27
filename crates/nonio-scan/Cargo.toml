@@ -22,6 +22,8 @@ oxc_syntax = "=0.153.0"
 fancy-regex = "0.20"
 indexmap.workspace = true
 oxc_resolver = "=11.24.2"
+# HTML of Vue templates (D28); MIT. Only its parser and scanner are used.
+vue-compiler-core = { version = "=0.1.0", default-features = false }
 
 [dev-dependencies]
 pretty_assertions.workspace = true
