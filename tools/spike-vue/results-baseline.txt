@@ -1,0 +1,25 @@
+== src/components/OrderList.vue (raw)
+imports: ["vendor:vue", "src/components/OrderRow.vue", "src/composables/useOrders.ts", "src/utils/format.ts", "src/api/client.ts"]
+symbols: []
+== src/components/OrderRow.vue (raw)
+imports: []
+symbols: []
+== src/components/LegacyCounter.vue (raw)
+imports: ["vendor:vue", "src/utils/format.ts"]
+symbols: []
+== src/components/OrderList.vue (blanked)
+imports: ["vendor:vue", "src/components/OrderRow.vue", "src/composables/useOrders.ts", "src/utils/format.ts", "src/api/client.ts"]
+symbols: [("src/components/OrderList.vue#<cb1>", 349, 400), ("src/components/OrderList.vue#refresh", 403, 468), ("src/components/OrderList.vue#pick", 470, 511), ("src/components/OrderList.vue#<cb2>", 523, 538)]
+call: {"from":"src/components/OrderList.vue","to":"src/composables/useOrders.ts#useOrders","confidence":"syntactic","count":1}
+call: {"from":"src/components/OrderList.vue","to":"vendor:vue","confidence":"syntactic","count":2}
+call: {"from":"src/components/OrderList.vue#refresh","to":"src/api/client.ts#http.get","confidence":"syntactic","count":1}
+call: {"from":"src/components/OrderList.vue#<cb2>","to":"src/components/OrderList.vue#refresh","confidence":"syntactic","count":1}
+== src/components/OrderRow.vue (blanked)
+imports: []
+symbols: []
+== src/components/LegacyCounter.vue (blanked)
+imports: ["vendor:vue", "src/utils/format.ts"]
+symbols: [("src/components/LegacyCounter.vue#load", 104, 141), ("src/components/LegacyCounter.vue#default", 143, 290)]
+call: {"from":"src/components/LegacyCounter.vue#default","to":"vendor:vue","confidence":"syntactic","count":1}
+call: {"from":"src/components/LegacyCounter.vue#default","to":"src/components/LegacyCounter.vue#load","confidence":"syntactic","count":1}
+call: {"from":"src/components/LegacyCounter.vue#default","to":"src/utils/format.ts#formatTotal","confidence":"syntactic","count":1}

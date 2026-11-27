@@ -1,0 +1,57 @@
+== src/components/LegacyCounter.vue
+   panicked=false errors=0
+   program body: ImportDeclaration@19..56 ImportDeclaration@57..102 ExportNamedDeclaration@104..141 ExportDefaultDeclaration@143..290 ExpressionStatement@0..0 
+   semantic errors: 0
+   template identifier references: 1 {"unresolved": 1}; span not slicing back to the name: 0; calls with an empty span: 0
+   call      defineComponent              <script> 9:16 [158..173] faithful=true -> import defineComponent from 'vue'
+   call      load                         <script> 11:17 [203..207] faithful=true -> binding load declared in <script> at 5:17, scope depth 0
+   call      formatTotal                  <script> 15:14 [256..267] faithful=true -> import formatTotal from '../utils/format'
+   call      show                         <template> 22:12 [324..328] faithful=true -> unresolved
+== src/components/OrderList.vue
+   panicked=false errors=0
+   program body: ImportDeclaration@25..66 ImportDeclaration@67..104 ImportDeclaration@105..157 ImportDeclaration@158..203 ImportDeclaration@204..240 ExpressionStatement@0..0 
+   semantic errors: 0
+   template identifier references: 11 {"binding in <script setup>": 5, "binding in <template>": 4, "import": 2}; span not slicing back to the name: 0; calls with an empty span: 1
+   call      defineProps                  <script setup> 8:15 [256..267] faithful=true -> unresolved
+   call      useOrders                    <script setup> 9:26 [314..323] faithful=true -> import useOrders from '../composables/useOrders'
+   call      computed                     <script setup> 10:15 [340..348] faithful=true -> import computed from 'vue'
+   call      orders.value.reduce          <script setup> 10:30 [355..374] faithful=true -> binding orders declared in <script setup> at 9:9, scope depth 1
+   call      load                         <script setup> 13:3 [426..430] faithful=true -> binding load declared in <script setup> at 9:17, scope depth 1
+   call      http.get                     <script setup> 14:3 [435..443] faithful=true -> import http from '../api/client'
+   call      onMounted                    <script setup> 21:1 [513..522] faithful=true -> import onMounted from 'vue'
+   call      refresh                      <script setup> 21:17 [529..536] faithful=true -> binding refresh declared in <script setup> at 12:10, scope depth 1
+   call      formatTotal                  <template> 27:11 [615..626] faithful=true -> import formatTotal from '../utils/format'
+   ref       refresh                      <template> 28:21 [661..668] faithful=true -> binding refresh declared in <script setup> at 12:10, scope depth 1
+   call                                   <outside> 1:1 [0..0] faithful=true -> no root identifier
+   component OrderRow                     <template> 29:6 [692..700] faithful=true -> import OrderRow from './OrderRow.vue'
+   ref       o                            <template> 29:55 [741..742] faithful=true -> binding o declared in <template> at 29:22, scope depth 2
+   call      pick                         <template> 29:67 [753..757] faithful=true -> binding pick declared in <script setup> at 17:10, scope depth 1
+   call      o.load                       <template> 29:86 [772..778] faithful=true -> binding o declared in <template> at 29:22, scope depth 2
+== src/components/OrderRow.vue
+   panicked=false errors=0
+   program body: ExpressionStatement@0..0 
+   semantic errors: 0
+   template identifier references: 2 {"binding in <script setup>": 2}; span not slicing back to the name: 0; calls with an empty span: 0
+   call      defineProps                  <script setup> 2:15 [39..50] faithful=true -> unresolved
+   call      defineEmits                  <script setup> 3:14 [108..119] faithful=true -> unresolved
+   call      emit                         <template> 7:15 [174..178] faithful=true -> binding emit declared in <script setup> at 3:7, scope depth 1
+
+== expectations (fixture/expected.txt)
+   PASS src/components/OrderList.vue:9 call useOrders: want 'import useOrders from '../composables/useOrders'', got 'import useOrders from '../composables/useOrders''
+   PASS src/components/OrderList.vue:10 call computed: want 'import computed from 'vue'', got 'import computed from 'vue''
+   PASS src/components/OrderList.vue:13 call load: want 'binding load declared in <script setup> at 9:', got 'binding load declared in <script setup> at 9:17, scope depth 1'
+   PASS src/components/OrderList.vue:14 call http.get: want 'import http from '../api/client'', got 'import http from '../api/client''
+   PASS src/components/OrderList.vue:21 call onMounted: want 'import onMounted from 'vue'', got 'import onMounted from 'vue''
+   PASS src/components/OrderList.vue:21 call refresh: want 'binding refresh declared in <script setup> at 12:', got 'binding refresh declared in <script setup> at 12:10, scope depth 1'
+   PASS src/components/OrderRow.vue:3 call defineEmits: want 'unresolved', got 'unresolved'
+   PASS src/components/OrderList.vue:27 call formatTotal: want 'import formatTotal from '../utils/format'', got 'import formatTotal from '../utils/format''
+   PASS src/components/OrderList.vue:28 ref refresh: want 'binding refresh declared in <script setup> at 12:', got 'binding refresh declared in <script setup> at 12:10, scope depth 1'
+   PASS src/components/OrderList.vue:29 component OrderRow: want 'import OrderRow from './OrderRow.vue'', got 'import OrderRow from './OrderRow.vue''
+   PASS src/components/OrderList.vue:29 call pick: want 'binding pick declared in <script setup> at 17:', got 'binding pick declared in <script setup> at 17:10, scope depth 1'
+   PASS src/components/OrderRow.vue:7 call emit: want 'binding emit declared in <script setup> at 3:', got 'binding emit declared in <script setup> at 3:7, scope depth 1'
+   PASS src/components/OrderList.vue:29 call o.load: want 'binding o declared in <template>', got 'binding o declared in <template> at 29:22, scope depth 2'
+   PASS src/components/LegacyCounter.vue:11 call load: want 'binding load declared in <script> at 5:', got 'binding load declared in <script> at 5:17, scope depth 0'
+   PASS src/components/LegacyCounter.vue:15 call formatTotal: want 'import formatTotal from '../utils/format'', got 'import formatTotal from '../utils/format''
+   PASS src/components/LegacyCounter.vue:22 call show: want 'unresolved', got 'unresolved'
+
+== score: 16/16
