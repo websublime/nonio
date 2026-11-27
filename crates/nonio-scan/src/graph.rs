@@ -269,9 +269,7 @@ impl<'g> Index<'g> {
     fn imported_type(&self, f: &'g code2graph::FileFacts, name: &str) -> Option<&'g SymbolId> {
         let mut found: HashSet<&SymbolId> = HashSet::new();
         for r in f.references.iter().filter(|r| r.role == RefRole::Import && r.name == name) {
-            let Some(path) = r.from_path.as_deref().filter(|p| !p.is_empty() && !p.starts_with('.')) else {
-                return None;
-            };
+            let path = r.from_path.as_deref().filter(|p| !p.is_empty() && !p.starts_with('.'))?;
             let segs: Vec<&str> = path.split(['.', '/']).collect();
             let leaf = r.imported_name.as_deref().unwrap_or(&r.name);
             for ((ns, n), ids) in &self.types_by_package {
