@@ -1,0 +1,551 @@
+/* nonio viewer.
+   Paper and ink: a cool off-white canvas with dots, white cards outlined in ink, thin arrows labelled in plain text.
+   Lamp yellow is the brand and what's lit (the walkthrough and what you selected). Red = gaps, green = confirmed and
+   proposed fixes, violet = Claude is working, and what Claude proposes (dashed until the code has it). The card you're focused on is dark, like a note pinned to the map. */
+:root {
+  --bg: #f3f4f1;
+  --paper: #fbfbf9;
+  --surface: #ffffff;
+  --ink: #1e2421;
+  --muted: #69716c;
+  --line: #dcdfd8;
+  --line-strong: #8b938d;
+  --dot: #cdd2c9;
+  --path: #1e2421;
+  --accent: #0f5c5a;
+  --accent-soft: #e2efed;
+  --lamp: #f2c230;
+  --lamp-soft: #fff6d6;
+  --lamp-glow: rgba(242, 194, 48, 0.45);
+  --ai: #6b4bb0;
+  --ai-soft: #f1ecfa;
+  --ok: #2d7a55;
+  --ok-soft: #e4f2ea;
+  --dead: #cf4a33;
+  --dead-soft: #fbe5df;
+  --changed: #a8620c;
+  --changed-soft: #fbefd8;
+  --focus-bg: #23292a;
+  --focus-ink: #eef1ee;
+  --focus-muted: #9da7a2;
+  --focus-line: #3b4344;
+  --shadow: 0 12px 32px -14px rgba(30, 36, 33, 0.28);
+  --font: "Instrument Sans Variable", "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #151a1b; --paper: #1a1f20; --surface: #1f2526; --ink: #e8ece9; --muted: #9aa39e; --line: #2f3637;
+    --line-strong: #6c7571; --dot: #2b3233; --path: #e8ece9; --accent: #5cc2bd; --accent-soft: #17302f;
+    --lamp: #f2c230; --lamp-soft: #2f2a15; --lamp-glow: rgba(242, 194, 48, 0.3); --ai: #b49af0; --ai-soft: #262036;
+    --ok: #5fd39a; --ok-soft: #13291e; --dead: #ff7a66; --dead-soft: #351c18; --changed: #f0b25e; --changed-soft: #33260f;
+    --focus-bg: #2a3132; --focus-ink: #eef1ee; --focus-muted: #a2aca7; --focus-line: #414a4b;
+    --shadow: 0 12px 32px -14px rgba(0, 0, 0, 0.6); color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 400 14px/1.5 var(--font); -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; }
+code { font: 500 0.9em var(--mono); }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.muted { color: var(--muted); }
+.small { font-size: 12.5px; }
+.grow { flex: 1; }
+.eyebrow { font-size: 12.5px; font-weight: 500; line-height: 1.3; color: var(--muted); }
+
+/* ---------- buttons ---------- */
+.pill-btn {
+  display: inline-flex; align-items: center; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  border-radius: 999px; padding: 5px 14px; font-size: 13px; font-weight: 500; text-decoration: none; white-space: nowrap; cursor: pointer; flex: none;
+}
+.pill-btn:hover { border-color: var(--line-strong); }
+.pill-btn:disabled { opacity: 0.45; cursor: default; }
+.btns, .tour-nav { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.btn { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 7px 14px; cursor: pointer; font-size: 13px; font-weight: 500; }
+.btn:hover { border-color: var(--line-strong); }
+a.btn { display: inline-block; text-decoration: none; }
+.btn.primary { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.btn.primary:hover { border-color: var(--ink); opacity: 0.88; }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.link-btn { border: 0; background: transparent; padding: 0; color: var(--accent); cursor: pointer; text-align: left; font-size: 13px; }
+.link-btn.on { font-weight: 600; }
+
+/* ---------- layout ---------- */
+.app { height: 100%; display: grid; grid-template-rows: auto 1fr; }
+.topbar { display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 16px; background: var(--paper); border-bottom: 1px solid var(--line); min-width: 0; }
+.brand { display: inline-flex; align-items: center; gap: 9px; font-weight: 700; font-size: 15px; color: var(--ink); text-decoration: none; letter-spacing: -0.01em; flex: none; }
+.brand-mark { width: 24px; height: 24px; background: url('./logo.svg') center / contain no-repeat; flex: none; }
+.topbar-map { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 10px; }
+.switcher {
+  font: inherit; font-weight: 600; font-size: 14.5px; min-width: 12ch; max-width: 60ch; flex: 0 1 auto; text-overflow: ellipsis;
+  border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--ink); padding: 4px 6px; cursor: pointer;
+}
+.switcher:hover, .switcher:focus { border-color: var(--line); background: var(--surface); }
+.crumb { color: var(--muted); text-decoration: none; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 0 1 24ch; min-width: 8ch; }
+.crumb:hover { color: var(--accent); }
+.map-status { font-size: 13px; white-space: nowrap; flex: none; cursor: help; }
+.map-status.ok { color: var(--ok); }
+.map-status.off { color: var(--dead); background: var(--dead-soft); border: 1px solid color-mix(in srgb, var(--dead) 35%, transparent); border-radius: 999px; padding: 4px 11px; font-weight: 500; }
+.live { width: 8px; height: 8px; border-radius: 50%; background: var(--line-strong); flex: none; }
+.live.on { background: var(--ok); }
+.body { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) var(--panel-w, 400px); min-height: 0; }
+.body.full { grid-template-columns: minmax(0, 1fr); }
+/* The panel's left edge: drag it (or focus it and use ← →) to change the panel's width. Double-click resets it. */
+.panel-handle { position: absolute; top: 0; bottom: 0; right: calc(var(--panel-w, 400px) - 5px); width: 10px; z-index: 7; cursor: col-resize; touch-action: none; }
+.panel-handle::after { content: ""; position: absolute; top: 0; bottom: 0; left: 4px; width: 2px; background: transparent; transition: background 0.15s; }
+.panel-handle:hover::after, .panel-handle:focus-visible::after, body.resizing .panel-handle::after { background: var(--line-strong); }
+.panel-handle:focus-visible { outline: none; }
+body.resizing { cursor: col-resize; user-select: none; }
+@media (max-width: 900px) {
+  .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: 64vh auto; }
+  .panel-handle { display: none; }
+  .map-status.ok { display: none; }
+}
+.canvas { position: relative; min-width: 0; min-height: 0; background: var(--bg); container-type: inline-size; container-name: canvas; }
+.empty { height: 100%; display: grid; place-items: center; }
+.pulse { color: var(--ai); animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+
+/* ---------- graph ---------- */
+.react-flow { --xy-background-color: var(--bg); --xy-background-pattern-color: var(--dot); background: var(--bg); }
+.react-flow__attribution { background: transparent; }
+.react-flow__node-area, .react-flow__node-step { padding: 0; border: 0; background: transparent; }
+.area { width: 100%; height: 100%; border: 1px solid var(--line); border-radius: 26px; background: color-mix(in srgb, var(--surface) 42%, transparent); transition: opacity 0.25s; }
+.area-label { padding: 16px 22px 0; font-size: 13.5px; font-weight: 600; color: var(--muted); letter-spacing: -0.005em; }
+.area-note { font-weight: 400; }
+.area.dim { opacity: 0.4; }
+.handle { opacity: 0; width: 1px; height: 1px; min-width: 0; min-height: 0; border: 0; }
+
+.step {
+  position: relative; width: 232px; height: 96px; padding: 11px 14px 10px; border-radius: 16px; background: var(--surface);
+  border: 1.5px solid var(--ink); cursor: pointer; display: grid; align-content: center; gap: 7px;
+  transition: opacity 0.25s, background 0.2s, box-shadow 0.2s;
+}
+.step:hover { box-shadow: 0 0 0 4px var(--line); }
+.step-head { display: flex; align-items: center; gap: 7px; margin-bottom: -2px; font-size: 12px; color: var(--muted); min-width: 0; }
+.step-mark { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 10.5px; line-height: 1; background: var(--bg); color: var(--muted); flex: none; }
+.kind-entry .step-mark { background: var(--ok-soft); color: var(--ok); }
+.kind-store .step-mark { background: var(--accent-soft); color: var(--accent); }
+.kind-external .step-mark { background: var(--ai-soft); color: var(--ai); }
+.kind-job .step-mark { background: var(--lamp-soft); color: #8a6500; }
+.step-name { font-weight: 600; font-size: 15px; line-height: 1.25; letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.step-code { display: flex; align-items: center; gap: 6px; min-width: 0; border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; font-size: 11px; }
+.step-sub { font: 11px/1.4 var(--mono); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.step.kind-job, .step.kind-external { border-style: dashed; }
+.step.unconfirmed { border-style: dashed; border-color: var(--line-strong); }
+.step.unconfirmed .step-code { border-style: dashed; }
+.step.hl { background: var(--lamp-soft); box-shadow: 0 0 0 4px var(--lamp-glow); }
+.step.dim { opacity: 0.32; }
+.step.selected { box-shadow: 0 0 0 5px var(--lamp-glow), 0 0 0 1.5px var(--ink); }
+.badge-new { margin-left: auto; font-size: 11px; font-weight: 600; color: var(--surface); background: var(--ai); border-radius: 999px; padding: 1px 8px; }
+
+.react-flow__edge.link .react-flow__edge-path { stroke: var(--line-strong); stroke-width: 1.4; transition: opacity 0.25s; }
+.react-flow__edge.link.hl .react-flow__edge-path { stroke: var(--path); stroke-width: 2.2; }
+.react-flow__edge.link.unconfirmed .react-flow__edge-path { stroke-dasharray: 4 4; }
+/* A gap stays red and a proposed fix stays green even when highlighted. */
+.react-flow__edge.link.link-absence .react-flow__edge-path { stroke: var(--dead); stroke-width: 1.8; stroke-dasharray: 6 6; }
+.react-flow__edge.link.link-absence.hl .react-flow__edge-path { stroke-width: 2.4; }
+.react-flow__edge.link.link-ghost .react-flow__edge-path { stroke: var(--ok); stroke-width: 2.2; stroke-dasharray: 6 5; }
+.react-flow__edgelabel-renderer { z-index: 4; }
+.react-flow__edge.link.dim { opacity: 0.25; }
+.edge-halo { fill: none; stroke: var(--lamp-glow); stroke-width: 14; stroke-linecap: round; }
+.link-label {
+  position: absolute; pointer-events: all; cursor: pointer; display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12.5px; color: color-mix(in srgb, var(--ink) 72%, var(--bg)); background: var(--bg); border-radius: 8px; padding: 2px 7px;
+  white-space: nowrap; transition: opacity 0.25s;
+}
+.link-label:hover { color: var(--ink); }
+.link-label.hl { color: var(--ink); font-weight: 600; }
+.link-label.link-absence { color: var(--dead); font-weight: 600; background: transparent; padding: 0; }
+.link-label.link-absence .link-text { background: var(--bg); border-radius: 8px; padding: 2px 7px 2px 2px; }
+.gap-q {
+  width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; flex: none; font-size: 15px; font-weight: 600;
+  color: var(--dead); background: var(--dead-soft); border: 1.5px solid var(--dead);
+}
+.link-label.link-absence.hl .gap-q { box-shadow: 0 0 0 4px color-mix(in srgb, var(--dead) 22%, transparent); }
+.link-label.link-ghost { color: var(--ok); font-weight: 600; border: 1.5px solid var(--ok); background: var(--ok-soft); border-radius: 999px; padding: 2px 10px; cursor: default; }
+.link-label.selected { box-shadow: 0 0 0 4px var(--lamp-glow); }
+.link-label.link-absence.selected { box-shadow: none; }
+.link-label.link-absence.selected .gap-q { box-shadow: 0 0 0 5px var(--lamp-glow); }
+.link-label.dim { opacity: 0.3; }
+.link-label .q { color: var(--muted); }
+
+/* ---------- dock ---------- */
+.dock {
+  position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 5; width: max-content; max-width: calc(100% - 32px);
+  display: flex; align-items: stretch; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow);
+}
+.dock-part { display: grid; align-content: start; gap: 6px; padding: 9px 12px 11px; border-left: 1px solid var(--line); min-width: 0; }
+.dock-part:first-child { border-left: 0; }
+.dock-title { margin: 0; font-size: 11.5px; font-weight: 500; color: var(--muted); }
+.dock-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.dock-hint { font-size: 11.5px; color: var(--muted); opacity: 0.8; white-space: nowrap; }
+.dock-start { height: 36px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 0 12px; font-size: 13.5px; font-weight: 600; cursor: pointer; white-space: nowrap; display: inline-flex; gap: 8px; align-items: center; }
+.dock-start .muted { font-weight: 400; }
+.dock-start:hover { border-color: var(--line-strong); }
+/* Until the walkthrough of this map has been taken once, its button glows softly (a slow halo in the lamp colour),
+   since people who missed it read the map alone and found it harder. Without motion it's a steady halo instead. */
+.dock-start.glow, .dock-start.glow:hover { border-color: var(--lamp); animation: dock-glow 2.8s ease-in-out infinite; }
+@keyframes dock-glow { 0%, 100% { box-shadow: 0 0 0 2px var(--lamp-glow); } 50% { box-shadow: 0 0 0 7px var(--lamp-glow); } }
+@media (prefers-reduced-motion: reduce) { .dock-start.glow, .dock-start.glow:hover { animation: none; box-shadow: 0 0 0 3px var(--lamp-glow); } }
+.dock-ask { width: 420px; }
+/* Reopening the conversation: a button in the map's bottom-right corner while it's closed, on the side the panel
+   opens from. Where the map area is too narrow to sit beside the dock, it sits just above it. */
+.history-corner { position: absolute; bottom: 18px; right: 16px; z-index: 6; }
+.history-btn { gap: 7px; box-shadow: var(--shadow); height: 40px; padding: 0 14px; font-weight: 600; }
+.history-btn .history-arrow { color: var(--muted); font-weight: 400; }
+/* Stopping asks first. */
+.stop-ask { display: inline-flex; align-items: center; gap: 8px; }
+.stop-ask-text { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.stop-yes { border-color: #c2410c; color: #c2410c; }
+/* When the map area is narrow (a small window, or the panel is open), the question box gets its own row. */
+@container canvas (max-width: 900px) {
+  .dock:has(.dock-ask) { flex-wrap: wrap; width: min(560px, calc(100% - 32px)); }
+  .dock:has(.dock-ask) .dock-part { flex: 1 1 auto; }
+  .dock-ask { order: 3; width: 100%; flex-basis: 100%; border-left: 0; border-top: 1px solid var(--line); }
+}
+@container canvas (max-width: 1150px) {
+  .history-corner { bottom: 112px; }
+}
+
+/* ---------- walkthrough bubble ---------- */
+.card.tour-bubble { position: absolute; left: 20px; bottom: 20px; z-index: 6; width: 400px; max-width: calc(100% - 40px); max-height: calc(100% - 40px); overflow-y: auto; }
+.tour-head { display: flex; align-items: center; gap: 12px; padding-right: 30px; }
+.tour-head .dots { margin-left: auto; }
+@container canvas (max-width: 1340px) { .card.tour-bubble { bottom: 112px; } }
+
+/* ---------- what's selected: a bubble beside the box (bubble.tsx places it) ---------- */
+.box-bubble { position: absolute; z-index: 7; width: 380px; max-width: calc(100% - 24px); }
+.box-bubble > .card-selected { max-height: min(var(--bubble-cap, 45vh), var(--bubble-max, 45vh)); overflow-y: auto; box-shadow: 0 0 0 3px var(--lamp-glow), var(--shadow); }
+.box-bubble > .card-selected.card-dead { box-shadow: var(--shadow); }
+.box-bubble .card-selected > .eyebrow, .box-bubble .card-selected > .card-title { padding-right: 28px; }
+/* The pointer: a small diamond on the side facing the box, behind the card so only its tip shows. */
+.box-bubble-pointer { position: absolute; width: 12px; height: 12px; margin-top: -6px; background: var(--surface); border: 1px solid var(--lamp); transform: rotate(45deg); z-index: -1; }
+.box-bubble-right .box-bubble-pointer { left: -6px; }
+.box-bubble-left .box-bubble-pointer { right: -6px; }
+/* The resize grip, on the bottom corner away from the box. */
+.box-bubble-grip { position: absolute; bottom: 3px; width: 16px; height: 16px; z-index: 1; touch-action: none; opacity: 0.55;
+  background: linear-gradient(135deg, transparent 0 46%, var(--muted) 46% 54%, transparent 54% 66%, var(--muted) 66% 74%, transparent 74%); }
+.box-bubble-grip:hover { opacity: 1; }
+.box-bubble-right .box-bubble-grip { right: 3px; cursor: nwse-resize; }
+.box-bubble-left .box-bubble-grip { left: 3px; cursor: nesw-resize; transform: scaleX(-1); }
+body.resizing-bubble { cursor: nwse-resize; user-select: none; }
+/* A changed box's diff, behind "Show what changed": long lines wrap in the bubble rather than run off its edge. */
+.change-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.change-head > .link-btn, .code-toggle > .link-btn { white-space: nowrap; }
+.diff-size { font-family: var(--mono); font-size: 11.5px; }
+.diff-size .add { color: var(--ok); }
+.diff-size .del { color: var(--dead); }
+.box-bubble .diff { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* the question box, inside the dock */
+.composer { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px; min-width: 0; border: 1px solid var(--line); border-radius: 10px; padding: 3px 3px 3px 11px; background: var(--surface); }
+.composer:focus-within { border-color: var(--line-strong); }
+.composer textarea { flex: 1; min-width: 160px; resize: none; border: 0; outline: none; background: transparent; color: var(--ink); font: inherit; font-size: 14px; padding: 5px 0; max-height: 140px; }
+.composer textarea:focus-visible { outline: none; }
+.sel-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; color: var(--ink); background: var(--lamp-soft); border: 1px solid var(--lamp); border-radius: 999px; padding: 2px 4px 2px 9px; margin: 3px 0; }
+.sel-text { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sel-chip.sel-step { background: var(--surface); border-color: var(--line-strong); }
+.sel-chip.sel-absences { color: var(--dead); background: var(--dead-soft); border-color: var(--dead); }
+.sel-chip button { border: 0; background: transparent; cursor: pointer; padding: 0 4px; font-size: 14px; line-height: 1; color: inherit; }
+/* Codex: questions are asked in its chat beside the page; this stands where the box would be. */
+.composer-chat { align-items: center; padding: 6px 11px; background: var(--bg); border-style: dashed; }
+.chat-hint { margin: 0; flex: 1 1 220px; font-size: 13.5px; line-height: 1.45; }
+.home-ask.chat-hint { display: block; padding: 12px 16px; border-style: dashed; }
+.send { width: 30px; height: 30px; flex: none; border-radius: 50%; border: 0; background: var(--lamp); color: #23292a; font-size: 15px; font-weight: 700; cursor: pointer; }
+.send:disabled { background: var(--bg); color: var(--muted); cursor: default; }
+
+/* ---------- panel ---------- */
+.panel { border-left: 1px solid var(--line); background: var(--paper); display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
+.panel-head { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 18px; border-bottom: 1px solid var(--line); }
+.panel-title { margin: 0; font-size: 14px; font-weight: 600; }
+.panel-head .link-btn { margin-left: auto; }
+.panel-head .card-close { position: static; flex: none; }
+.panel-head .panel-title + .card-close { margin-left: auto; }
+.panel-scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 16px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-content: start; }
+.panel-foot { position: relative; display: grid; gap: 10px; padding: 12px 16px 14px; border-top: 1px solid var(--line); background: var(--paper); }
+/* Back to the newest turn when the person has scrolled up to something older (follow.ts). */
+.to-latest { position: absolute; top: -46px; left: 50%; transform: translateX(-50%); padding: 6px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; font-weight: 500; box-shadow: var(--shadow); cursor: pointer; }
+.to-latest:hover { border-color: var(--line-strong); }
+.thread-empty { margin: 0; }
+
+/* A turn: your question as a bubble on the right, then what came back. */
+.turn { display: grid; gap: 8px; }
+.you { display: grid; justify-items: end; gap: 3px; }
+.you-q { margin: 0; max-width: 88%; padding: 8px 13px; border-radius: 16px 16px 4px 16px; background: color-mix(in srgb, var(--ink) 7%, var(--paper)); font-size: 14px; font-weight: 500; line-height: 1.45; overflow-wrap: anywhere; }
+.you-about { font-size: 12px; color: var(--muted); max-width: 88%; text-align: right; }
+.reply { gap: 9px; }
+.reply-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--muted); }
+.reply-lit { display: inline-flex; align-items: center; gap: 6px; }
+.reply-lit::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--lamp); box-shadow: 0 0 6px 1px var(--lamp-glow); }
+.reply-added { display: flex; align-items: baseline; gap: 10px; font-size: 12.5px; color: var(--muted); }
+.card-selected { border-color: var(--lamp); box-shadow: 0 0 0 3px var(--lamp-glow); }
+.card-selected.card-dead { border-color: color-mix(in srgb, var(--dead) 55%, var(--line)); box-shadow: none; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 15px 17px; display: grid; grid-template-columns: minmax(0, 1fr); position: relative; gap: 10px; min-width: 0; overflow-wrap: anywhere; }
+.card-close { position: absolute; top: 10px; right: 10px; width: 26px; height: 26px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; }
+.card-close:hover { background: var(--bg); color: var(--ink); }
+.card-ai { border-color: color-mix(in srgb, var(--ai) 45%, var(--line)); }
+.card-ok { border-color: color-mix(in srgb, var(--ok) 50%, var(--line)); }
+.card-dead { border-color: color-mix(in srgb, var(--dead) 55%, var(--line)); background: color-mix(in srgb, var(--dead-soft) 45%, var(--surface)); }
+.card-title { margin: 0; font-size: 17px; line-height: 1.3; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
+.card p { margin: 0; }
+.depth-text { font-size: 14px; line-height: 1.6; }
+
+/* Markdown in what Claude writes (markdown.tsx). */
+.md { display: grid; gap: 8px; min-width: 0; }
+.md p, .md ul, .md ol, .md pre { margin: 0; }
+.md ul, .md ol { padding-left: 1.3em; display: grid; gap: 3px; }
+.md li::marker { color: var(--muted); }
+.md .md-h { font-weight: 650; }
+.md code { padding: 1px 5px; border-radius: 5px; background: color-mix(in srgb, var(--ink) 7%, transparent); font-size: 0.86em; }
+.md pre { padding: 9px 11px; border-radius: 9px; background: var(--bg); border: 1px solid var(--line); overflow-x: auto; font: 12px/1.55 var(--mono); }
+.md pre code { padding: 0; background: none; font-size: inherit; }
+.md a { color: var(--accent); text-underline-offset: 2px; }
+.card-focus .md code { background: rgba(255, 255, 255, 0.1); }
+.card-focus .md pre { background: rgba(0, 0, 0, 0.2); border-color: var(--focus-line); }
+.card-focus .md a { color: var(--lamp); }
+.card-focus .md li::marker { color: var(--focus-muted); }
+.depth-text.mono { font: 12.5px/1.6 var(--mono); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 4px 10px; cursor: pointer; text-align: left; }
+.chip:hover { border-color: var(--line-strong); }
+.chip.static { cursor: default; font-family: var(--mono); font-size: 11.5px; }
+.chip.static:hover { border-color: var(--line); }
+.chip-unconfirmed { border-style: dashed; color: var(--muted); }
+.tick { color: var(--ok); font-weight: 700; font-family: var(--font); }
+.qmark { color: var(--muted); font-weight: 700; font-family: var(--font); }
+.basis { display: grid; gap: 7px; }
+.progress { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; font-size: 13px; }
+.progress li { display: grid; grid-template-columns: 16px 1fr; gap: 6px; overflow-wrap: anywhere; }
+.progress .ic { color: var(--ok); font-weight: 700; }
+.progress .running, .progress .running .ic { color: var(--ai); }
+.diff { margin: 0; padding: 10px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; font: 11.5px/1.55 var(--mono); overflow-x: auto; white-space: pre; max-height: 260px; }
+.diff .add { color: var(--ok); }
+.diff .del { color: var(--dead); }
+.diff .file { color: var(--muted); font-weight: 600; }
+.warn { color: var(--dead); }
+.problems { margin: 0; padding-left: 1.1em; font-size: 12.5px; color: var(--muted); display: grid; gap: 4px; }
+.problems-box summary { cursor: pointer; font-size: 12.5px; color: var(--muted); }
+.dots { display: flex; gap: 6px; }
+.dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.dots i.done { background: transparent; box-shadow: inset 0 0 0 1.5px var(--lamp); }
+.dots i.on { background: var(--lamp); width: 22px; border-radius: 4px; }
+.kbd { font-size: 12px; color: var(--muted); }
+.banner { border-radius: 12px; padding: 10px 13px; font-size: 13px; display: flex; gap: 10px; justify-content: space-between; align-items: start; }
+.banner-dead { background: var(--dead-soft); color: var(--dead); border: 1px solid var(--dead); }
+
+/* The card you're focused on (walkthrough stop, an answer, what you selected): dark, like a note pinned to the map. */
+.card-focus { background: var(--focus-bg); border-color: var(--focus-bg); color: var(--focus-ink); box-shadow: var(--shadow); }
+.card-focus .eyebrow, .card-focus .muted, .card-focus .kbd, .card-focus .problems, .card-focus .problems-box summary { color: var(--focus-muted); }
+.card-focus .card-close { color: var(--focus-muted); }
+.card-focus .card-close:hover { background: var(--focus-line); color: var(--focus-ink); }
+.card-focus .chip { background: transparent; border-color: var(--focus-line); color: var(--focus-ink); }
+.card-focus .chip:hover { border-color: var(--focus-muted); }
+.card-focus .chip-unconfirmed { color: var(--focus-muted); }
+.card-focus .tick { color: #7fd6a6; }
+.card-focus .qmark { color: var(--focus-muted); }
+.card-focus .warn { color: #ff9a88; }
+.card-focus .btn { background: transparent; border-color: var(--focus-line); color: var(--focus-ink); }
+.card-focus .btn:hover { border-color: var(--focus-muted); }
+.card-focus .btn.primary { background: var(--lamp); border-color: var(--lamp); color: #23292a; }
+.card-focus .dots i { background: var(--focus-line); }
+.card-focus .dots i.done { background: transparent; }
+.card-focus .dots i.on { background: var(--lamp); }
+.card-focus code { color: var(--focus-ink); }
+.card-focus .reply-meta, .card-focus .reply-added { color: var(--focus-muted); }
+.card-focus .link-btn { color: var(--lamp); }
+
+/* ---------- home ---------- */
+.home { max-width: 760px; margin: 0 auto; padding: 64px 20px 80px; display: grid; gap: 18px; }
+.home-brand { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+.home-brand .muted { font-weight: 400; margin-left: 4px; }
+.home h1 { margin: 0; font-size: clamp(30px, 4.4vw, 42px); font-weight: 600; letter-spacing: -0.025em; line-height: 1.08; }
+.lede { font-size: 16px; margin: 0; }
+.home-ask { display: flex; gap: 8px; padding: 6px; background: var(--surface); border: 1.5px solid var(--ink); border-radius: 16px; }
+.home-ask input { flex: 1; min-width: 0; border: 0; outline: none; border-radius: 10px; padding: 8px 10px; font: inherit; font-size: 15.5px; background: transparent; color: var(--ink); }
+.home-ask input:focus-visible { outline: none; }
+.home-ask:focus-within { box-shadow: 0 0 0 4px var(--lamp-glow); }
+.home-ask .btn { border-radius: 11px; padding: 8px 18px; font-size: 14px; }
+.section-title { font-size: 13px; margin: 22px 0 10px; color: var(--muted); font-weight: 600; }
+.maplist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.maplist li { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; display: grid; gap: 2px; }
+.maplist li:hover { border-color: var(--line-strong); }
+.maplist a { color: var(--ink); font-weight: 600; text-decoration: none; }
+.maplist a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.home-foot { display: flex; align-items: center; gap: 12px; border-top: 1px solid var(--line); padding-top: 16px; margin-top: 8px; }
+.reply-warn { margin: 0; line-height: 1.5; }
+.reply-warn .link-btn { color: inherit; text-decoration: underline; text-underline-offset: 2px; font-size: inherit; }
+
+/* Screens: what the person sees at a box (screen.tsx). The mark is the thing the box is about. */
+.badge-screen { margin-left: auto; font-size: 11px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.badge-screen + .badge-new { margin-left: 6px; }
+.screen { margin: 10px 0 2px; display: grid; gap: 5px; }
+.screen-shot { position: relative; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--paper); }
+.screen-zoom { position: relative; width: 100%; height: 100%; transition: transform 0.25s ease; }
+.screen-shot img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.linklike { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-decoration: underline; cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { .screen-zoom { transition: none; } }
+.screen-mark { position: absolute; border: 2px solid var(--lamp); border-radius: 5px; box-shadow: 0 0 0 3px var(--lamp-glow), 0 0 0 9999px rgba(0, 0, 0, 0.16); pointer-events: none; }
+.screen-image { display: grid; place-items: center; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); }
+.screen-image img { max-width: 100%; max-height: 180px; }
+.screen-sketch { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; padding: 12px; border: 1.5px dashed var(--line-strong); border-radius: 8px; background: var(--paper); color: var(--ink); }
+.sk { font-size: 13px; max-width: 100%; overflow-wrap: anywhere; }
+.sk-heading { font-weight: 700; font-size: 15px; }
+.sk-button { border: 1.5px solid var(--ink); border-radius: 6px; padding: 3px 12px; font-weight: 600; }
+.sk-field { border: 1px solid var(--line-strong); border-radius: 5px; padding: 3px 10px; min-width: 60%; color: var(--muted); }
+.sk-link { text-decoration: underline; }
+.sk-image { color: var(--muted); }
+.sk-mark { outline: 2px solid var(--lamp); outline-offset: 3px; box-shadow: 0 0 0 6px var(--lamp-glow); border-radius: 5px; }
+
+/* Proposals: what the map suggests adding, changing or removing. Violet and dashed while the code doesn't have it;
+   once the checker finds it done, an addition is drawn like any other step, with a green badge. */
+.badge-proposal { font-size: 11px; font-weight: 600; color: var(--ai); background: var(--ai-soft); border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+.pmark { color: var(--ai); font-weight: 700; flex: none; }
+.step.proposal-pending { border-color: var(--ai); }
+.step.proposal-add.proposal-pending { border-style: dashed; background: color-mix(in srgb, var(--ai-soft) 55%, var(--surface)); }
+.step.proposal-add.proposal-pending .step-code { border-style: dashed; border-color: color-mix(in srgb, var(--ai) 45%, transparent); }
+.step.proposal-remove .step-name { text-decoration: line-through; text-decoration-color: var(--ai); color: var(--muted); }
+.step.proposal-remove.proposal-done { border-style: dashed; border-color: var(--line-strong); opacity: 0.6; }
+.step.proposal-change.proposal-done { border-style: dashed; border-color: var(--line-strong); }
+.step.proposal-done .badge-proposal { color: var(--ok); background: var(--ok-soft); }
+.react-flow__edge.link.proposal-pending .react-flow__edge-path { stroke: var(--ai); }
+.react-flow__edge.link.proposal-add.proposal-pending .react-flow__edge-path { stroke-width: 1.8; stroke-dasharray: 6 5; }
+.react-flow__edge.link.proposal-remove .react-flow__edge-path { stroke-dasharray: 2 5; }
+.react-flow__edge.link.proposal-remove.proposal-done .react-flow__edge-path { opacity: 0.45; }
+.link-label.proposal-pending { color: var(--ai); }
+/* With the change made (the proposal's own view, plan.ts): what is new is drawn solid, as part of the code, with a
+   "New" badge; only "Both" keeps the dashed look of something proposed on top. */
+.step.proposal-pending.proposal-quiet, .step.proposal-add.proposal-pending.proposal-quiet { border-style: solid; }
+.step.proposal-add.proposal-pending.proposal-quiet:not(.branch) { background: var(--surface); }
+.step.proposal-pending.proposal-quiet .step-code { border-style: solid; }
+.react-flow__edge.link.proposal-add.proposal-pending.proposal-quiet .react-flow__edge-path { stroke-dasharray: none; }
+.key-swatch.key-new { border-color: var(--ai); background: var(--ai-soft); }
+.link-label.proposal-remove .link-text { text-decoration: line-through; }
+.link-label.proposal-done .pmark { color: var(--ok); }
+.map-status.proposals { color: var(--ai); background: var(--ai-soft); border-radius: 999px; padding: 4px 11px; font-weight: 500; }
+.chip.chip-proposed { border-style: dashed; border-color: color-mix(in srgb, var(--ai) 55%, transparent); }
+.proposal-note { margin: 8px 0; padding: 8px 10px; border-left: 3px solid var(--ai); background: var(--ai-soft); border-radius: 0 6px 6px 0; font-size: 13px; line-height: 1.45; }
+.proposal-note.proposal-note-done { border-left-color: var(--ok); background: var(--ok-soft); }
+.card-focus .proposal-note, .card-selected .proposal-note { color: var(--ink); }
+.sk.sk-proposed { outline: 1.5px dashed var(--ai); outline-offset: 3px; border-radius: 5px; color: var(--ai); display: inline-flex; align-items: baseline; gap: 8px; }
+.sk-button.sk-proposed { border-color: var(--ai); }
+.sk-new { font: 600 10px/1 inherit; font-style: normal; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ai); }
+
+/* A journey map: a user flow, left to right. Boxes carry only their words; the shape says what each one is. */
+.step.jstep { padding: 8px 14px; border-radius: 12px; gap: 3px; justify-items: center; text-align: center; }
+.j-name { font-weight: 600; font-size: 14.5px; line-height: 1.25; letter-spacing: -0.01em; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; position: relative; }
+.j-note { font-size: 11px; color: var(--muted); position: relative; }
+.j-stage { position: absolute; left: 2px; bottom: calc(100% + 9px); font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; }
+.j-tags { position: absolute; top: -10px; right: 8px; display: flex; gap: 5px; z-index: 1; }
+.j-tags:empty { display: none; }
+.j-q { width: 19px; height: 19px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--surface); border: 1.5px dashed var(--line-strong); color: var(--muted); }
+.step.j-action { border-radius: 999px; background: color-mix(in srgb, var(--accent-soft) 60%, var(--surface)); }
+.step.j-action.hl { background: var(--lamp-soft); }
+.step.j-outside { border-style: dashed; }
+.step.j-choice, .step.j-choice:hover, .step.j-choice.hl, .step.j-choice.selected, .step.j-choice.unconfirmed, .step.j-choice.proposal { background: transparent; border-color: transparent; box-shadow: none; padding: 0 44px; }
+.j-diamond { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.j-diamond polygon { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.8; transition: fill 0.2s; }
+.j-choice:hover .j-diamond polygon { stroke-width: 2.6; }
+.j-choice.hl .j-diamond polygon { fill: var(--lamp-soft); stroke: var(--lamp); stroke-width: 2.6; }
+.j-choice.selected .j-diamond polygon { stroke: var(--ink); stroke-width: 2.6; filter: drop-shadow(0 0 5px var(--lamp-glow)); }
+.j-choice.unconfirmed .j-diamond polygon { stroke-dasharray: 5 4; stroke: var(--line-strong); }
+.j-choice.proposal-pending .j-diamond polygon { stroke: var(--ai); fill: var(--ai-soft); }
+.j-choice.proposal-add.proposal-pending .j-diamond polygon { stroke-dasharray: 6 5; }
+.j-choice .j-name { font-size: 13.5px; }
+.journey .link-label { max-width: 128px; white-space: normal; text-align: center; line-height: 1.25; }
+/* In lanes, steps of one area sit side by side, so a label wraps to fit the gap between them. */
+.lanes .link-label { max-width: 116px; white-space: normal; text-align: center; line-height: 1.25; }
+/* A journey box with the picture of its screen on it. */
+.step.jstep.j-pictured { padding: 8px 8px 7px; align-content: start; gap: 6px; justify-items: stretch; }
+.thumb { height: 132px; border-radius: 7px; overflow: hidden; border: 1px solid var(--line); background: var(--paper); color: var(--ink); text-align: left; }
+.thumb-sketch { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; padding: 9px 10px; border-style: dashed; border-color: var(--line-strong); }
+.thumb-sketch .sk { font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; }
+.thumb-sketch .sk-heading { font-size: 12.5px; }
+.thumb-sketch .sk-button { padding: 1px 9px; }
+.thumb-sketch .sk-field { padding: 1px 8px; }
+.thumb-more { font-size: 10.5px; color: var(--muted); }
+.thumb-image { display: grid; place-items: center; padding: 8px; }
+.thumb-image img { max-width: 100%; max-height: 100%; }
+.thumb-shot img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+/* A map of a change: what the checker found new (green), different (amber) or gone (red, struck through) since a commit. */
+.badge-change { font-size: 11px; font-weight: 600; border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+.cmark { font-weight: 700; flex: none; }
+.step.change-added { border-color: var(--ok); background: color-mix(in srgb, var(--ok-soft) 55%, var(--surface)); box-shadow: inset 5px 0 0 var(--ok); }
+.step.change-changed { border-color: var(--changed); background: color-mix(in srgb, var(--changed-soft) 55%, var(--surface)); box-shadow: inset 5px 0 0 var(--changed); }
+.step.change-removed { border-color: var(--dead); border-style: dashed; background: color-mix(in srgb, var(--dead-soft) 45%, var(--surface)); }
+.step.change-removed .step-name, .step.change-removed .j-name { text-decoration: line-through; text-decoration-color: var(--dead); color: var(--muted); }
+.step.change.hl { background: var(--lamp-soft); }
+.step.change-added.selected { box-shadow: inset 5px 0 0 var(--ok), 0 0 0 5px var(--lamp-glow); }
+.step.change-changed.selected { box-shadow: inset 5px 0 0 var(--changed), 0 0 0 5px var(--lamp-glow); }
+.change-added .badge-change, .change-added .cmark { color: var(--ok); }
+.change-changed .badge-change, .change-changed .cmark { color: var(--changed); }
+.change-removed .badge-change, .change-removed .cmark { color: var(--dead); }
+.change-added .badge-change { background: var(--ok-soft); }
+.change-changed .badge-change { background: var(--changed-soft); }
+.change-removed .badge-change { background: var(--dead-soft); }
+.step.jstep.change { box-shadow: none; }
+.react-flow__edge.link.change-added .react-flow__edge-path { stroke: var(--ok); stroke-width: 2; }
+.react-flow__edge.link.change-removed .react-flow__edge-path { stroke: var(--dead); stroke-dasharray: 2 5; }
+.link-label.change-added { color: var(--ok); font-weight: 600; }
+.link-label.change-removed { color: var(--dead); }
+.link-label.change-removed .link-text { text-decoration: line-through; }
+.map-status.changes { color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px; font-weight: 500; }
+.change-note { margin: 8px 0; padding: 8px 10px; border-left: 3px solid var(--changed); background: var(--changed-soft); border-radius: 0 6px 6px 0; font-size: 13px; line-height: 1.45; }
+.change-note.change-note-added { border-left-color: var(--ok); background: var(--ok-soft); }
+.change-note.change-note-removed { border-left-color: var(--dead); background: var(--dead-soft); }
+.change-note .diff { margin-top: 8px; background: var(--surface); }
+.card-focus .change-note, .card-selected .change-note { color: var(--ink); }
+.step.change-added:hover { box-shadow: inset 5px 0 0 var(--ok), 0 0 0 4px var(--line); }
+.step.change-changed:hover { box-shadow: inset 5px 0 0 var(--changed), 0 0 0 4px var(--line); }
+.step.j-choice.change, .step.j-choice.change:hover { background: transparent; border-color: transparent; box-shadow: none; }
+.j-choice.change-added .j-diamond polygon { stroke: var(--ok); fill: var(--ok-soft); }
+.j-choice.change-changed .j-diamond polygon { stroke: var(--changed); fill: var(--changed-soft); }
+.j-choice.change-removed .j-diamond polygon { stroke: var(--dead); fill: var(--dead-soft); stroke-dasharray: 6 5; }
+.change-size { font-weight: 500; font-family: var(--mono); font-size: 10.5px; }
+/* The key to a map of a change, with the Before / After / Both switch. */
+.change-key { display: flex; align-items: center; gap: 14px; padding: 5px 14px 5px 5px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; font-size: 12.5px; color: var(--muted); box-shadow: var(--shadow); }
+.change-key-title { font-weight: 600; color: var(--ink); }
+.key-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.key-swatch { width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid var(--ink); background: var(--surface); flex: none; }
+.key-swatch.key-added { border-color: var(--ok); background: var(--ok-soft); }
+.key-swatch.key-changed { border-color: var(--changed); background: var(--changed-soft); }
+.key-swatch.key-removed { border-color: var(--dead); border-style: dashed; background: var(--dead-soft); }
+.seg { display: inline-flex; background: var(--bg); border-radius: 999px; padding: 2px; }
+.seg-btn { border: 0; background: transparent; font: inherit; font-size: 12.5px; color: var(--muted); padding: 4px 12px; border-radius: 999px; cursor: pointer; }
+.seg-btn:hover { color: var(--ink); }
+.seg-btn.on { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 3px rgba(30, 36, 33, 0.18); }
+/* In the Before or After view, what isn't part of that version is a shadow: an empty dashed outline with grey words.
+   (Dimming, for what a walkthrough stop isn't about, keeps the box solid and lowers its opacity instead.) */
+.step.ghost, .step.ghost:hover, .step.ghost.kind-job, .step.ghost.kind-external { background: transparent; border: 1.5px dashed var(--line-strong); box-shadow: none; opacity: 0.5; }
+.step.ghost .step-name, .step.ghost .j-name { color: var(--muted); font-weight: 500; text-decoration: none; }
+.step.ghost .step-code { border-style: dashed; background: transparent; }
+.step.ghost .tick, .step.ghost .cmark { color: var(--muted); }
+.step.ghost.selected { box-shadow: 0 0 0 5px var(--lamp-glow); opacity: 0.8; }
+.badge-ghost { font-size: 11px; font-weight: 500; color: var(--muted); white-space: nowrap; font-style: italic; }
+.j-choice.ghost .j-diamond polygon { stroke: var(--line-strong); stroke-dasharray: 6 5; fill: transparent; }
+.react-flow__edge.link.ghost .react-flow__edge-path { stroke: var(--line-strong); stroke-width: 1.2; stroke-dasharray: 3 6; opacity: 0.5; }
+.link-label.ghost { color: var(--muted); font-weight: 400; opacity: 0.55; }
+.link-label.ghost .link-text { text-decoration: none; }
+.key-swatch.key-ghost { border: 1.5px dashed var(--line-strong); background: transparent; }
+.step.j-choice.ghost, .step.j-choice.ghost:hover { border-color: transparent; }
+/* In the Before or After view a changed box is an ordinary box with an amber edge and a small badge: enough to find it
+   when flipping, without turning a picture of one version back into a diff. */
+.step.change-changed.quiet { background: var(--surface); border-color: var(--ink); }
+.step.change-changed.quiet.hl { background: var(--lamp-soft); }
+.step.jstep.change-changed.quiet { border-color: var(--changed); }
+.quiet .badge-change { background: transparent; padding: 0; font-weight: 500; }
+.key-swatch.key-quiet { background: var(--surface); border-color: var(--ink); box-shadow: inset 4px 0 0 var(--changed); }
+/* The cited line whose code is open: clicking it again closes the code. */
+.chip.cite.chip-open { background: var(--lamp-soft); border-color: var(--lamp); }
+/* A label with nowhere clear to go (labels.ts): a small dot on its arrow, its words shown when pointed at. */
+/* A label with no room for its words: a small "⋯" pill on its arrow (DOT in labels.ts), so it reads as deliberate rather
+   than a gap in the line. Its words show when pointed at, or when the arrow is selected. */
+.link-label.dot:not(:hover) { box-sizing: border-box; width: 26px; height: 18px; min-width: 0; padding: 0; justify-content: center; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface); color: var(--muted); }
+.link-label.dot:not(:hover) > * { display: none; }
+.link-label.dot:not(:hover)::after { content: "⋯"; font-size: 13px; font-weight: 700; line-height: 1; }
+.link-label.dot:hover { z-index: 10; }

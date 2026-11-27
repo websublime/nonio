@@ -1,0 +1,55 @@
+/* Ways through (`branch`, on any kind of map): what they share in ink, each way in a colour of its own, on its boxes, its arrows and in
+   the key. Five colours, none of them a colour that already means something on the map (yellow lit, red missing or
+   removed, green added, amber changed, violet proposed). */
+:root {
+  --branch-1: #2f6bd3; /* blue */
+  --branch-2: #c23b7c; /* pink */
+  --branch-3: #12838c; /* teal */
+  --branch-4: #5d6b80; /* slate */
+  --branch-5: #8a5a3b; /* brown */
+}
+@media (prefers-color-scheme: dark) {
+  :root { --branch-1: #7ea8f5; --branch-2: #ef8bbb; --branch-3: #5ec4cc; --branch-4: #a3afc0; --branch-5: #cf9e7c; }
+}
+.branch-1 { --branch: var(--branch-1); }
+.branch-2 { --branch: var(--branch-2); }
+.branch-3 { --branch: var(--branch-3); }
+.branch-4 { --branch: var(--branch-4); }
+.branch-5 { --branch: var(--branch-5); }
+
+/* Boxes: a coloured outline and a coloured band along the top, over a faint wash of the colour. */
+.step.jstep.branch:not(.j-choice) {
+  border-color: var(--branch);
+  background: color-mix(in srgb, var(--branch) 7%, var(--surface));
+  box-shadow: inset 0 4px 0 color-mix(in srgb, var(--branch) 70%, transparent);
+}
+.step.jstep.branch:not(.j-choice):hover { box-shadow: inset 0 4px 0 color-mix(in srgb, var(--branch) 70%, transparent), 0 0 0 4px var(--line); }
+.step.jstep.branch.j-action { border-radius: 999px; box-shadow: none; border-width: 2px; }
+.step.jstep.branch.j-action:hover { box-shadow: 0 0 0 4px var(--line); }
+.step.jstep.branch.hl:not(.j-choice) { background: var(--lamp-soft); box-shadow: 0 0 0 4px var(--lamp-glow); }
+.step.jstep.branch.selected:not(.j-choice) { box-shadow: 0 0 0 5px var(--lamp-glow), 0 0 0 1.5px var(--branch); }
+.j-choice.branch .j-diamond polygon { stroke: var(--branch); fill: color-mix(in srgb, var(--branch) 9%, var(--surface)); }
+.j-choice.branch.hl .j-diamond polygon { fill: var(--lamp-soft); stroke: var(--branch); }
+.j-choice.branch.selected .j-diamond polygon { stroke: var(--branch); }
+
+/* Any other map: a box on a way through takes its colour on its border and a stripe along its top. A proposed box keeps
+   its dashed border and "Proposed" badge, in its way's colour, so a change's options can be told apart. */
+.step:not(.jstep).branch { border-color: var(--branch); box-shadow: inset 0 4px 0 color-mix(in srgb, var(--branch) 70%, transparent); }
+.step:not(.jstep).branch:hover { box-shadow: inset 0 4px 0 color-mix(in srgb, var(--branch) 70%, transparent), 0 0 0 4px var(--line); }
+.step:not(.jstep).branch.proposal-add.proposal-pending { background: color-mix(in srgb, var(--branch) 8%, var(--surface)); }
+.step:not(.jstep).branch.proposal-add.proposal-pending .step-code { border-color: color-mix(in srgb, var(--branch) 45%, transparent); }
+.step:not(.jstep).branch.hl { background: var(--lamp-soft); box-shadow: 0 0 0 4px var(--lamp-glow); }
+.step:not(.jstep).branch.selected { box-shadow: 0 0 0 5px var(--lamp-glow), 0 0 0 1.5px var(--branch); }
+.step.branch .badge-proposal { color: color-mix(in srgb, var(--branch) 85%, var(--ink)); background: color-mix(in srgb, var(--branch) 14%, var(--surface)); }
+.link-label.branch.proposal-pending { color: color-mix(in srgb, var(--branch) 80%, var(--ink)); }
+
+/* Arrows: the branch's colour, a little heavier than the main path's, and heavier still when lit. */
+.react-flow__edge.link.branch .react-flow__edge-path { stroke: var(--branch); stroke-width: 1.8; }
+.react-flow__edge.link.branch.hl .react-flow__edge-path { stroke: var(--branch); stroke-width: 2.8; }
+.link-label.branch { color: color-mix(in srgb, var(--branch) 80%, var(--ink)); }
+.link-label.branch.hl { color: var(--branch); }
+
+/* The keys at the top left of the map: the change key above, the branch key below, never on top of each other. */
+.map-keys { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.change-key.branch-key { padding: 6px 14px; flex-wrap: wrap; row-gap: 4px; max-width: min(1100px, calc(100vw - 80px)); border-radius: 18px; }
+.key-swatch.branch { border-color: var(--branch); background: color-mix(in srgb, var(--branch) 14%, var(--surface)); box-shadow: inset 0 3px 0 var(--branch); }

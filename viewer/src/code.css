@@ -1,0 +1,63 @@
+/* Code in the conversation (code.tsx): the function behind a box with its cited lines marked, and an answer's notes
+   beside the lines they are about. Kept apart from styles.css, like wireframe.css. */
+.code-view { display: grid; gap: 10px; min-width: 0; }
+.code-block { margin: 0; min-width: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink); overflow: hidden; }
+.code-cap { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--surface); font-size: 12px; }
+.code-where { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.code-name { font: 600 12px/1.4 var(--mono); white-space: nowrap; }
+.code-file { font: 11.5px/1.4 var(--mono); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; min-width: 0; }
+.code-open { flex: none; color: var(--accent); text-decoration: none; font-size: 12px; white-space: nowrap; }
+.code-open:hover { text-decoration: underline; text-underline-offset: 2px; }
+.code-lines { max-height: 280px; overflow-y: auto; font: 11.5px/1.6 var(--mono); }
+.code-inner { display: grid; padding: 6px 0; }
+.code-line { display: grid; grid-template-columns: 4ch minmax(0, 1fr); column-gap: 12px; padding: 0 12px 0 8px; border-left: 3px solid transparent; }
+.code-n { text-align: right; color: var(--muted); user-select: none; opacity: 0.75; }
+/* Long lines wrap: the panel is narrow, and scrolling sideways hides the end of the line that matters. */
+.code-t { white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 2; }
+.code-line.cited { background: var(--lamp-soft, var(--accent-soft)); border-left-color: var(--lamp, var(--accent)); }
+.code-line.cited .code-n { color: var(--ink); opacity: 1; }
+.code-line.flash { animation: code-flash 1.2s ease-out; }
+@keyframes code-flash { from { box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--lamp, var(--accent)) 45%, transparent); } to { box-shadow: inset 0 0 0 999px transparent; } }
+/* A note sits under the line it is about. */
+.code-note {
+  grid-column: 2; justify-self: start; margin: 3px 0 6px; padding: 5px 9px; border-radius: 0 8px 8px 8px;
+  background: var(--ink); color: var(--bg); font: 500 12px/1.45 var(--font); white-space: normal;
+}
+.code-missing { margin: 0; }
+.code-editor { justify-self: end; font-size: 12px; color: var(--muted); }
+.code-editor select { border: 0; background: transparent; color: var(--accent); font: inherit; cursor: pointer; padding: 0; }
+.code-when { justify-self: start; }
+.code-toggle { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+/* A cited line's chip jumps to it in the code. */
+.chip.cite { font-family: var(--mono); font-size: 11.5px; }
+/* On the reply that is lit (drawn dark), the code keeps its own light-on-dark or dark-on-light look. */
+.card-focus .code-editor { color: var(--focus-muted, var(--muted)); }
+.card-focus .code-editor select { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+
+/* Syntax colours (highlight.ts), in the app's palette, for light and dark. Later rules win where tokens nest. */
+.code-block {
+  --syn-comment: #858c87; --syn-keyword: #8b3fa8; --syn-string: #2b7a4f; --syn-number: #a8580c; --syn-function: #1f5fa8;
+  --syn-type: #0f6e6b; --syn-property: #7a5a12; --syn-punct: #5d6560;
+}
+@media (prefers-color-scheme: dark) {
+  .code-block {
+    --syn-comment: #7f8984; --syn-keyword: #d29bff; --syn-string: #85d6a3; --syn-number: #f0b25e; --syn-function: #7fb8ff;
+    --syn-type: #5cc2bd; --syn-property: #e3c27e; --syn-punct: #a3ada8;
+  }
+}
+.code-t .tok-punctuation, .code-t .tok-operator { color: var(--syn-punct); }
+.code-t .tok-property, .code-t .tok-attr-name, .code-t .tok-variable, .code-t .tok-parameter, .code-t .tok-key { color: var(--syn-property); }
+.code-t .tok-number, .code-t .tok-boolean, .code-t .tok-constant, .code-t .tok-symbol, .code-t .tok-char { color: var(--syn-number); }
+.code-t .tok-string, .code-t .tok-template-string, .code-t .tok-attr-value, .code-t .tok-regex, .code-t .tok-url { color: var(--syn-string); }
+.code-t .tok-class-name, .code-t .tok-builtin, .code-t .tok-namespace, .code-t .tok-tag, .code-t .tok-selector, .code-t .tok-type-definition, .code-t .tok-lifetime-annotation { color: var(--syn-type); }
+.code-t .tok-function, .code-t .tok-function-definition, .code-t .tok-macro { color: var(--syn-function); }
+.code-t .tok-keyword, .code-t .tok-important, .code-t .tok-atrule, .code-t .tok-rule, .code-t .tok-directive { color: var(--syn-keyword); }
+.code-t .tok-interpolation-punctuation, .code-t .tok-interpolation .tok-punctuation { color: var(--syn-keyword); }
+.code-t .tok-comment, .code-t .tok-prolog, .code-t .tok-doctype, .code-t .tok-cdata { color: var(--syn-comment); font-style: italic; }
+.code-t .tok-comment * { color: inherit; }
+
+/* A selected box's bubble with its code open starts bigger, so the code is readable without resizing (a size the
+   person dragged to, kept in localStorage, still wins: it is set inline). */
+.box-bubble:has(.code-view) { width: 600px; }
+.box-bubble:has(.code-view) > .card-selected { max-height: min(var(--bubble-cap, 70vh), var(--bubble-max, 70vh)); }
+.box-bubble .code-lines { max-height: min(46vh, 520px); font-size: 12px; }

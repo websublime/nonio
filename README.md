@@ -4,7 +4,7 @@ Interactive maps of how code works, where every box and every arrow is checked a
 program before it is shown. Written in Rust, inspired by [illuminate](https://github.com/johnz4021/illuminate).
 
 Status: phase 3. The map format, the checker, the TS/JS extraction backend (oxc), the page server and the MCP channel
-are ported; the viewer and the `nonio mcp` binary come next.
+and the web viewer are ported; embedding the viewer in the binary and `nonio mcp` come next.
 
 ## Workspace
 
@@ -17,6 +17,19 @@ are ported; the viewer and the `nonio mcp` binary come next.
 
 The checker knows facts only through the `Extractor` trait. `nonio-scan` implements it for TS/JS and Vue on oxc, and
 for Java, Kotlin and Python through the `code2graph` adapter and the field resolver (D14, D15).
+
+## Viewer
+
+`viewer/` is the web page that shows a map (React, React Flow and ELK, from illuminate). The page server serves its
+built `dist/`.
+
+```sh
+cd viewer
+npm ci
+npm test         # builds the viewer-maps example: the tests read their maps through nonio's own parser and checker
+npm run build
+cargo run -p nonio-server --example preview   # the care-app map in the real server, no model; open the printed link
+```
 
 ## Tests
 

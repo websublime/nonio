@@ -57,6 +57,10 @@ Carried over from illuminate (read at commit 7a88df6, 2026-11-26):
   renamed nonio_*).
 - crates/nonio-server/tests/channel.rs: ported from
   packages/server/test/channel.test.ts.
+- viewer/: packages/viewer (the web viewer, React Flow + ELK), with its tests,
+  renamed for nonio (token header, storage keys, wording); viewer/src/model.d.ts
+  was generated from packages/core and packages/server types. The logo is new.
+- crates/nonio-server/examples/preview.rs: after packages/server/scripts/preview.ts.
 - tools/record-prompts/*.ts: call illuminate's prompt and schema modules.
 
 The Vue template lowering in crates/nonio-scan/src/vue.rs is ported from
