@@ -150,6 +150,7 @@ pub fn extract(path: &str, source: &str, ctx: &ExtractContext<'_>) -> (FileFacts
     facts.calls = std::mem::take(&mut w.calls).into_values().collect();
     facts.clients = std::mem::take(&mut w.clients);
     facts.requests = std::mem::take(&mut w.requests);
+    facts.wrappers = std::mem::take(&mut w.wrappers);
     let ok = record.mode != Mode::Regex;
     (facts, record, ok)
 }

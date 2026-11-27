@@ -283,6 +283,48 @@
           "text": "request('/orders')"
         }
       ]
+    },
+    {
+      "id": "blist",
+      "area": "ui",
+      "kind": "entry",
+      "name": "Billing list",
+      "symbol": "web/src/components/Billing.vue#list",
+      "evidence": [
+        {
+          "file": "web/src/components/Billing.vue",
+          "line": 5,
+          "text": "apiGet('/invoices')"
+        }
+      ]
+    },
+    {
+      "id": "bsettle",
+      "area": "ui",
+      "kind": "entry",
+      "name": "Billing settle",
+      "symbol": "web/src/components/Billing.vue#settle",
+      "evidence": [
+        {
+          "file": "web/src/components/Billing.vue",
+          "line": 9,
+          "text": "payInvoice('/7/pay')"
+        }
+      ]
+    },
+    {
+      "id": "bmirror",
+      "area": "ui",
+      "kind": "entry",
+      "name": "Billing mirror",
+      "symbol": "web/src/components/Billing.vue#mirror",
+      "evidence": [
+        {
+          "file": "web/src/components/Billing.vue",
+          "line": 13,
+          "text": "mirrorGet('/invoices')"
+        }
+      ]
     }
   ],
   "edges": [
@@ -507,6 +549,48 @@
           "file": "web/src/components/Lookalike.vue",
           "line": 9,
           "text": "request('/orders')"
+        }
+      ]
+    },
+    {
+      "id": "wrapped-instance",
+      "from": "blist",
+      "to": "ilist",
+      "kind": "request",
+      "label": "lists",
+      "evidence": [
+        {
+          "file": "web/src/components/Billing.vue",
+          "line": 5,
+          "text": "apiGet('/invoices')"
+        }
+      ]
+    },
+    {
+      "id": "wrapped-axios",
+      "from": "bsettle",
+      "to": "ipay",
+      "kind": "request",
+      "label": "pays",
+      "evidence": [
+        {
+          "file": "web/src/components/Billing.vue",
+          "line": 9,
+          "text": "payInvoice('/7/pay')"
+        }
+      ]
+    },
+    {
+      "id": "wrapped-unknown",
+      "from": "bmirror",
+      "to": "ilist",
+      "kind": "request",
+      "label": "lists",
+      "evidence": [
+        {
+          "file": "web/src/components/Billing.vue",
+          "line": 13,
+          "text": "mirrorGet('/invoices')"
         }
       ]
     }

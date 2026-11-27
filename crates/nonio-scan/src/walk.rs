@@ -6,7 +6,9 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use indexmap::IndexMap;
-use nonio_facts::{url_path, CallConfidence, CallFact, ClientFact, RequestFact, RouteFact, SymbolFact, SymbolKind};
+use nonio_facts::{
+    url_path, CallConfidence, CallFact, ClientFact, RequestFact, RouteFact, SymbolFact, SymbolKind, WrapperFact,
+};
 use oxc_ast::ast::*;
 use oxc_ast_visit::{walk, Visit};
 use oxc_semantic::Scoping;
@@ -259,6 +261,10 @@ pub struct Walker<'a, 'c> {
     pub clients: Vec<ClientFact>,
     /// Requests through a client library or an instance.
     pub requests: Vec<RequestFact>,
+    /// Functions that send a request with a URL from their parameter.
+    pub wrappers: Vec<WrapperFact>,
+    /// The parameter lists of the functions being walked, innermost last.
+    params: Vec<Span>,
 }
 
 impl<'a, 'c> Walker<'a, 'c> {
@@ -295,6 +301,8 @@ impl<'a, 'c> Walker<'a, 'c> {
             template: None,
             clients: Vec::new(),
             requests: Vec::new(),
+            wrappers: Vec::new(),
+            params: Vec::new(),
         }
     }
 
@@ -956,6 +964,12 @@ impl<'a, 'c> Walker<'a, 'c> {
             }
         }
         self.visit_formal_parameters(f.params());
+        self.params.push(f.params().span);
+        self.fn_body_inner(f);
+        self.params.pop();
+    }
+
+    fn fn_body_inner(&mut self, f: F<'_, 'a>) {
         match f {
             F::Fun(func) => {
                 if let Some(b) = &func.body {
@@ -1081,9 +1095,11 @@ impl<'a, 'c> Walker<'a, 'c> {
         Some((lib, prefix))
     }
 
-    /// A request with a URL literal through a client library (`axios.post('/x')`, `ky('/x')`) or through a value
-    /// bound to a name at module scope, here or by import (`api.get('/x')`, `api('/x')`); the checker keeps the
-    /// latter only when that name is a client ([`ClientFact`]).
+    /// A request through a client library (`axios.post('/x')`, `ky('/x')`), through a value bound to a name at module
+    /// scope, here or by import (`api.get('/x')`, `api('/x')`), or through a top-level function called by name
+    /// (`request('/x')`). With a URL literal it is a [`RequestFact`]; the checker keeps it only when what it goes
+    /// through is a library, a [`ClientFact`] or a [`WrapperFact`]. With the URL taken from a parameter of the
+    /// enclosing function (`api.get(path)`, ``api.get(`/v1${path}`)``) that function is a [`WrapperFact`].
     fn client_request(&mut self, args: &[Argument<'a>], callee: U<'_, 'a>) {
         let (object, method) = match callee {
             U::M(MemberExpression::StaticMemberExpression(m))
@@ -1095,34 +1111,78 @@ impl<'a, 'c> Walker<'a, 'c> {
             _ => return,
         };
         let Some(Expression::Identifier(i)) = object.expr() else { return };
-        let Some((url, exact)) = arg_expr(args.first()).and_then(url_literal) else { return };
-        let Some(url) = url_path(&url).or_else(|| (!url.contains("://")).then(|| format!("/{url}"))) else { return };
+        let Some(first) = arg_expr(args.first()) else { return };
         let at = self.local_of(i);
-        let via = if let Some(lib) = self.lib_of(object) {
+        // What the call goes through, and whether that is known to be a client (a library or an instance).
+        let (via, known) = if let Some(lib) = self.lib_of(object) {
             if method.is_none() && !lib.callable {
                 return;
             }
             if lib.pkg == "ofetch" && method.is_none() {
                 return; // `ofetch('/x')` and `$fetch('/x')` are read with `fetch` (see nonio_facts::find_fetch_sites)
             }
-            format!("vendor:{}", lib.pkg)
+            (format!("vendor:{}", lib.pkg), true)
         } else if at.is_some() {
             return; // a parameter or local: nothing to resolve it to
         } else if self.clients.iter().any(|c| c.id == format!("{}#{}", self.path, i.name)) {
-            format!("{}#{}", self.path, i.name)
-        } else if !self.bindings.contains_key(&(i.name.to_string(), None)) {
-            return; // declared here, and not a client
+            (format!("{}#{}", self.path, i.name), true)
+        } else if !self.bindings.contains_key(&(i.name.to_string(), None)) && method.is_some() {
+            return; // a member call on something declared here that is not a client (`app.post('/x', h)`)
         } else {
             match self.target_root(Root::Ident(i.name.as_str(), None), Vec::new()) {
-                Some(t) if t.contains('#') && !t.starts_with("vendor:") => t,
+                Some(t) if t.contains('#') && !t.starts_with("vendor:") => (t, false),
                 _ => return,
             }
         };
-        let method = method.or_else(|| arg_expr(args.get(1)).and_then(option_method)).unwrap_or_else(|| "GET".into());
+        let option = arg_expr(args.get(1)).and_then(option_method);
+        if let Some(prefix) = self.param_url(first) {
+            // Only through a client (a library, an instance, a method call on an imported one) or a wrapper of this
+            // file: a function that passes its parameter on to any other function is not a request.
+            if !(known || method.is_some() || self.wrappers.iter().any(|w| w.id == via)) {
+                return;
+            }
+            let Some(cur) = self.current else { return };
+            let w = WrapperFact { id: self.symbols[cur].id.clone(), via, prefix, method: method.or(option) };
+            if !self.wrappers.iter().any(|x| x.id == w.id) {
+                self.wrappers.push(w);
+            }
+            return;
+        }
+        let Some((url, exact)) = url_literal(first) else { return };
+        // ky and got take paths without the leading `/` under a `prefixUrl`; anything else must look like a path.
+        let url = match url_path(&url) {
+            Some(u) => u,
+            None if known && !url.contains("://") => format!("/{url}"),
+            None => return,
+        };
+        let method = method.or(option).unwrap_or_else(|| "GET".into());
         let from = self.current.map_or_else(|| self.path.to_string(), |c| self.symbols[c].id.clone());
         let r = RequestFact { from, method, url, exact, via };
         if !self.requests.contains(&r) {
             self.requests.push(r);
+        }
+    }
+
+    /// The literal prefix when `e` is a parameter of the function being walked (`path`) or a template that ends
+    /// with one and whose literal part doesn't end in `/` (`` `/v1${path}` ``).
+    fn param_url(&self, e: &Expression<'a>) -> Option<String> {
+        let params = self.params.last()?;
+        let is_param = |x: &Expression<'a>| match unwrap(x).expr() {
+            Some(Expression::Identifier(i)) => self.local_of(i).is_some_and(|at| params.start <= at && at < params.end),
+            _ => false,
+        };
+        match unwrap(e).expr()? {
+            Expression::Identifier(_) if is_param(e) => Some(String::new()),
+            Expression::TemplateLiteral(t)
+                if t.expressions.len() == 1
+                    && is_param(&t.expressions[0])
+                    && t.quasis.last().is_some_and(|q| q.value.raw.is_empty())
+                    // `/orders/${id}` is a URL with a hole; `/api${path}` takes a path (as the original reads it).
+                    && !t.quasis[0].value.raw.ends_with('/') =>
+            {
+                Some(t.quasis[0].value.raw.to_string())
+            }
+            _ => None,
         }
     }
 

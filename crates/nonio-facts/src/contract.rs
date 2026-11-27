@@ -141,6 +141,23 @@ pub struct FileFacts {
     /// Requests sent through an HTTP client library or one of its instances, found by resolving the callee.
     #[serde(default)]
     pub requests: Vec<RequestFact>,
+    /// Functions that send a request through a client with a URL taken from their parameter.
+    #[serde(default)]
+    pub wrappers: Vec<WrapperFact>,
+}
+
+/// A function that sends a request through a client library, an instance or another wrapper, with the URL made from
+/// one of its parameters: `function request(path) { return api.get(`/v1${path}`) }` is `{ id: "<file>#request",
+/// via: "<file>#api", prefix: "/v1", method: Some("GET") }`. A call to it with a URL literal is a [`RequestFact`]
+/// whose `via` is this id.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WrapperFact {
+    pub id: String,
+    pub via: String,
+    /// Literal text in front of the parameter.
+    pub prefix: String,
+    /// Set when the wrapper fixes the method (`api.post(path)`); otherwise the call's own `{ method }` or GET.
+    pub method: Option<String>,
 }
 
 /// An HTTP client made from a library's factory and bound to a module-scope name: `export const api =
@@ -218,6 +235,7 @@ impl FileFacts {
             entries: Vec::new(),
             clients: Vec::new(),
             requests: Vec::new(),
+            wrappers: Vec::new(),
         }
     }
 }

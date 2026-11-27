@@ -10,7 +10,7 @@ use std::sync::OnceLock;
 
 use regex::Regex;
 
-use crate::contract::{CallFact, ClientFact, FileFacts, RouteFact, SymbolFact, SymbolKind};
+use crate::contract::{CallFact, ClientFact, FileFacts, RouteFact, SymbolFact, SymbolKind, WrapperFact};
 
 /// A call that sends an HTTP request to a URL known (at least in part) from the source text.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -364,35 +364,62 @@ pub fn find_fetch_sites(files: &[SourceFile<'_>]) -> Vec<FetchSite> {
     sites.into_iter().map(|(s, _)| s).collect()
 }
 
-/// The requests a file's facts hold, as fetch sites: a call on a client library as written, a call through an
-/// instance with the instance's prefix in front. `client` finds a [`ClientFact`] by id (in whatever file defines it);
-/// a request through an instance it doesn't find, or one whose prefix isn't known, is left out.
-pub fn client_sites(facts: &FileFacts, client: impl Fn(&str) -> Option<ClientFact>) -> Vec<FetchSite> {
+/// What a request's `via` names, besides a library: an instance or a wrapper (see [`client_sites`]).
+#[derive(Debug, Clone)]
+pub enum Through {
+    Client(ClientFact),
+    Wrapper(WrapperFact),
+}
+
+/// The requests a file's facts hold, as fetch sites: a call on a client library as written; a call through an
+/// instance with the instance's prefix in front; a call through a wrapper with the wrapper's prefix in front, then
+/// whatever the wrapper goes through, to a library. `through` finds an instance or wrapper by id (in whatever file
+/// defines it). A request is left out when something on the way isn't found or has a prefix that isn't known.
+pub fn client_sites(facts: &FileFacts, through: impl Fn(&str) -> Option<Through>) -> Vec<FetchSite> {
     let mut out = Vec::new();
-    for r in &facts.requests {
-        let (url, exact) = if r.via.starts_with("vendor:") {
-            (Some(r.url.clone()), r.exact)
-        } else {
-            match client(&r.via).and_then(|c| c.prefix) {
-                Some(p) => {
-                    (url_path(&format!("{}/{}", p.trim_end_matches('/'), r.url.trim_start_matches('/'))), r.exact)
-                }
-                None => (None, false),
+    'requests: for r in &facts.requests {
+        let mut url = r.url.clone();
+        let mut method: Option<String> = None;
+        let mut via = r.via.clone();
+        let mut seen = std::collections::HashSet::new();
+        while !via.starts_with("vendor:") {
+            if !seen.insert(via.clone()) {
+                continue 'requests;
             }
-        };
-        if let Some(url) = url {
-            out.push(FetchSite {
-                file: facts.path.clone(),
-                from: r.from.clone(),
-                method: r.method.clone(),
-                url,
-                exact,
-                via: Some(r.via.clone()),
-                wrapper: None,
-            });
+            let prefix = match through(&via) {
+                Some(Through::Client(c)) => match c.prefix {
+                    Some(p) => {
+                        url = join_url(&p, &url);
+                        break;
+                    }
+                    None => continue 'requests,
+                },
+                Some(Through::Wrapper(w)) => {
+                    method = method.or(w.method.clone());
+                    via = w.via.clone();
+                    w.prefix
+                }
+                None => continue 'requests,
+            };
+            url = format!("{prefix}{url}");
         }
+        let Some(url) = url_path(&url) else { continue };
+        out.push(FetchSite {
+            file: facts.path.clone(),
+            from: r.from.clone(),
+            method: method.unwrap_or_else(|| r.method.clone()),
+            url,
+            exact: r.exact,
+            via: Some(r.via.clone()),
+            wrapper: None,
+        });
     }
     out
+}
+
+/// A base URL and a path, with one `/` between.
+fn join_url(base: &str, path: &str) -> String {
+    format!("{}/{}", base.trim_end_matches('/'), path.trim_start_matches('/'))
 }
 
 /// Whether a site holds by the facts: a direct call always; a call to a wrapper only when `calls` (the site file's
@@ -549,16 +576,33 @@ mod tests {
             req("/x", "http.ts#env"),
             req("/a", "vendor:axios"),
             req("/b", "ui.ts#nope"),
+            req("/stock", "http.ts#post"),
+            req("/loop", "http.ts#loop"),
         ];
-        let client = |id: &str| match id {
-            "http.ts#api" => {
-                Some(ClientFact { id: id.into(), lib: "ky".into(), prefix: Some("https://shop.test/api/".into()) })
-            }
-            "http.ts#env" => Some(ClientFact { id: id.into(), lib: "axios".into(), prefix: None }),
+        let through = |id: &str| match id {
+            "http.ts#api" => Some(Through::Client(ClientFact {
+                id: id.into(),
+                lib: "ky".into(),
+                prefix: Some("https://shop.test/api/".into()),
+            })),
+            "http.ts#env" => Some(Through::Client(ClientFact { id: id.into(), lib: "axios".into(), prefix: None })),
+            "http.ts#post" => Some(Through::Wrapper(WrapperFact {
+                id: id.into(),
+                via: "http.ts#api".into(),
+                prefix: "/v1".into(),
+                method: Some("POST".into()),
+            })),
+            "http.ts#loop" => Some(Through::Wrapper(WrapperFact {
+                id: id.into(),
+                via: id.into(),
+                prefix: String::new(),
+                method: None,
+            })),
             _ => None,
         };
-        let urls: Vec<String> = client_sites(&f, client).into_iter().map(|s| s.url).collect();
-        assert_eq!(urls, ["/api/orders", "/a"]);
+        let got: Vec<String> =
+            client_sites(&f, through).into_iter().map(|s| format!("{} {}", s.method, s.url)).collect();
+        assert_eq!(got, ["GET /api/orders", "GET /a", "POST /api/v1/stock"]);
     }
 
     #[test]
