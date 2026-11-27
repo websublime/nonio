@@ -1,0 +1,995 @@
+{
+ "Vault.sol": {
+  "f55bac7583529d4ee00e9b3495d7325f74cf436088b89b9debea07fd8643bdcd": {
+   "calls": [],
+   "entries": [],
+   "hash": "fc1436a746d605d7",
+   "imports": [],
+   "path": "Vault.sol",
+   "reads": [],
+   "routes": [],
+   "symbols": [],
+   "writes": []
+  }
+ },
+ "src/automations/evaluate.ts": {
+  "91e103544cec24ec6d6ee6366a1ff7ebb67a08ba70672d895c09a9faedd3795f": {
+   "calls": [
+    {
+     "confidence": "syntactic",
+     "count": 1,
+     "from": "src/automations/evaluate.ts#evaluateRules",
+     "to": "src/db.ts#db.where"
+    },
+    {
+     "confidence": "syntactic",
+     "count": 1,
+     "from": "src/automations/evaluate.ts#evaluateRules",
+     "to": "src/jobs/queue.ts#queueEmail"
+    }
+   ],
+   "entries": [],
+   "hash": "fa4b6135213f09a2",
+   "imports": [
+    {
+     "to": "src/db.ts",
+     "typeOnly": false
+    },
+    {
+     "to": "src/jobs/queue.ts",
+     "typeOnly": false
+    }
+   ],
+   "path": "src/automations/evaluate.ts",
+   "reads": [
+    {
+     "symbol": "src/automations/evaluate.ts#evaluateRules",
+     "table": "automation_rules",
+     "via": "db"
+    }
+   ],
+   "routes": [],
+   "symbols": [
+    {
+     "bodyHash": "384c974e062aea44",
+     "exported": true,
+     "file": "src/automations/evaluate.ts",
+     "id": "src/automations/evaluate.ts#evaluateRules",
+     "kind": "function",
+     "name": "evaluateRules",
+     "parent": null,
+     "sigHash": "27db048712c1783c",
+     "span": {
+      "end": 337,
+      "start": 73
+     }
+    }
+   ],
+   "writes": []
+  }
+ },
+ "src/automations/listeners.ts": {
+  "2f9c21a4801835a57f9c26abde627207ce0b47b0e9ee2713ff1fcbf23e8e38fa": {
+   "calls": [
+    {
+     "confidence": "syntactic",
+     "count": 1,
+     "from": "src/automations/listeners.ts#onConverted",
+     "to": "src/automations/evaluate.ts#evaluateRules"
+    },
+    {
+     "confidence": "syntactic",
+     "count": 1,
+     "from": "src/automations/listeners.ts",
+     "to": "src/events/bus.ts#bus.on"
+    }
+   ],
+   "entries": [],
+   "hash": "47b3596af41b28db",
+   "imports": [
+    {
+     "to": "src/events/bus.ts",
+     "typeOnly": false
+    },
+    {
+     "to": "src/automations/evaluate.ts",
+     "typeOnly": false
+    }
+   ],
+   "path": "src/automations/listeners.ts",
+   "reads": [],
+   "routes": [],
+   "symbols": [
+    {
+     "bodyHash": "7d006e73cdd56f57",
+     "exported": true,
+     "file": "src/automations/listeners.ts",
+     "id": "src/automations/listeners.ts#onConverted",
+     "kind": "function",
+     "name": "onConverted",
+     "parent": null,
+     "sigHash": "9193128b620f82ab",
+     "span": {
+      "end": 190,
+      "start": 82
+     }
+    }
+   ],
+   "writes": []
+  },
+  "dcb1205675514f66fa4f48a46de1ab9e38badf95870332e64a18b504de76adc0": {
+   "calls": [
+    {
+     "confidence": "syntactic",
+     "count": 1,
+     "from": "src/automations/listeners.ts#listenForConversions",
+     "to": "src/events/bus.ts#bus.on"
+    },
+    {
+     "confidence": "syntactic",
+     "count": 1,
+     "from": "src/automations/listeners.ts#listenForConversions",
+     "to": "src/automations/evaluate.ts#evaluateRules"
+    }
+   ],
+   "entries": [],
+   "hash": "305ceda301bd88b9",
+   "imports": [
+    {
+     "to": "src/events/bus.ts",
+     "typeOnly": false
+    },
+    {
+     "to": "src/automations/evaluate.ts",
+     "typeOnly": false
+    }
+   ],
+   "path": "src/automations/listeners.ts",
+   "reads": [],
+   "routes": [],
+   "symbols": [
+    {
+     "bodyHash": "6a1a1828793d9a93",
+     "exported": true,
+     "file": "src/automations/listeners.ts",
+     "id": "src/automations/listeners.ts#listenForConversions",
+     "kind": "function",
+     "name": "listenForConversions",
+     "parent": null,
+     "sigHash": "3dc5ecf052d7988c",
+     "span": {
+      "end": 204,
+      "start": 82
+     }
+    }
+   ],
+   "writes": []
+  }
+ },
+ "src/email/send.ts": {
+  "87f44a4aac27805dfb2e26b4da677c2907252de6cd92bcdd9742da483dcb4b8e": {
+   "calls": [],
+   "entries": [],
+   "hash": "602b10092d6256d6",
+   "imports": [],
+   "path": "src/email/send.ts",
+   "reads": [],
+   "routes": [],
+   "symbols": [
+    {
+     "bodyHash": "b20a70f96d7612f1",
+     "exported": true,
+     "file": "src/email/send.ts",
+     "id": "src/email/send.ts#sendEmail",
+     "kind": "function",
+     "name": "sendEmail",
+     "parent": null,
+     "sigHash": "4224091194227c3b",
+     "span": {
+      "end": 121,
+      "start": 0
+     }
+    }
+   ],
+   "writes": []
+  }
+ },
+ "src/jobs/nightly.ts": {
+  "f69601a946a65194d0aa8f0c4bef9a2768b20e72195a9cccdf0e07cb50ae2843": {
+   "calls": [
+    {
+     "confidence": "syntactic",
+     "count": 1,
+     "from": "src/jobs/nightly.ts#runNightly",
+     "to": "src/db.ts#db.where"
+    },
+    {
+     "confidence": "syntactic",
+     "count": 1,
+     "from": "src/jobs/nightly.ts#runNightly",
+     "to": "src/automations/evaluate.ts#evaluateRules"
+    }
+   ],
+   "entries": [],
+   "hash": "2bd6ad40fa8463c7",
+   "imports": [
+    {
+     "to": "src/db.ts",
+     "typeOnly": false
+    },
+    {
+     "to": "src/automations/evaluate.ts",
+     "typeOnly": false
+    }
+   ],
+   "path": "src/jobs/nightly.ts",
+   "reads": [
+    {
+     "symbol": "src/jobs/nightly.ts#runNightly",
+     "table": "patients",
+     "via": "db"
+    }
+   ],
+   "routes": [],
+   "symbols": [
+    {
+     "bodyHash": "2b8577b7e3c3e484",
+     "exported": true,
+     "file": "src/jobs/nightly.ts",
+     "id": "src/jobs/nightly.ts#schedule",
+     "kind": "const",
+     "name": "schedule",
+     "parent": null,
+     "sigHash": "534a8653b5a472d0",
+     "span": {
+      "end": 179,
+      "start": 143
+     }
+    },
+    {
+     "bodyHash": "203cc455823117c0",
+     "exported": true,
+     "file": "src/jobs/nightly.ts",
+     "id": "src/jobs/nightly.ts#runNightly",
+     "kind": "function",
+     "name": "runNightly",
+     "parent": null,
+     "sigHash": "745979f4078ab37b",
+     "span": {
+      "end": 432,
+      "start": 181
+     }
+    }
+   ],
+   "writes": []
+  }
+ },
+ "src/jobs/queue.ts": {
+  "103201e432a11e3a9eb87a919db6a7d1a397169cb3c6e713d3c993e97b864132": {
+   "calls": [
+    {
+     "confidence": "syntactic",
+     "count": 1,
+     "from": "src/jobs/queue.ts#enqueueEmail",
+     "to": "src/email/send.ts#sendEmail"
+    }
+   ],
+   "entries": [],
+   "hash": "f509b51a18b29bfc",
+   "imports": [
+    {
+     "to": "src/email/send.ts",
+     "typeOnly": false
+    }
+   ],
+   "path": "src/jobs/queue.ts",
+   "reads": [],
+   "routes": [],
+   "symbols": [
+    {
+     "bodyHash": "a12f89578f9365bf",
+     "exported": true,
+     "file": "src/jobs/queue.ts",
+     "id": "src/jobs/queue.ts#enqueueEmail",
+     "kind": "function",
+     "name": "enqueueEmail",
+     "parent": null,
+     "sigHash": "0e5f2668b7b3b654",
+     "span": {
+      "end": 159,
+      "start": 44
+     }
+    }
+   ],
+   "writes": []
+  },
+  "5466daf8580db631acb091f57500c8b1e9becd86142babb544c647d5a4a57838": {
+   "calls": [
+    {
+     "confidence": "syntactic",
+     "count": 1,
+     "from": "src/jobs/queue.ts#queueEmail",
+     "to": "src/email/send.ts#sendEmail"
+    }
+   ],
+   "entries": [],
+   "hash": "98b8b479d76081ef",
+   "imports": [
+    {
+     "to": "src/email/send.ts",
+     "typeOnly": false
+    }
+   ],
+   "path": "src/jobs/queue.ts",
+   "reads": [],
+   "routes": [],
+   "symbols": [
+    {
+     "bodyHash": "a12f89578f9365bf",
+     "exported": true,
+     "file": "src/jobs/queue.ts",
+     "id": "src/jobs/queue.ts#queueEmail",
+     "kind": "function",
+     "name": "queueEmail",
+     "parent": null,
+     "sigHash": "0e5f2668b7b3b654",
+     "span": {
+      "end": 157,
+      "start": 44
+     }
+    }
+   ],
+   "writes": []
+  }
+ },
+ "src/patients/service.ts": {
+  "707ef0a9b9f57413cf47cac8f603c4d086265f6273fc88cd6cb3427b99e37358": {
+   "calls": [],
+   "entries": [],
+   "hash": "7f68ed9cde361cd8",
+   "imports": [],
+   "path": "src/patients/service.ts",
+   "reads": [],
+   "routes": [],
+   "symbols": [
+    {
+     "bodyHash": "4f4147b7e9cee0a6",
+     "exported": true,
+     "file": "src/patients/service.ts",
+     "id": "src/patients/service.ts#markConverted",
+     "kind": "function",
+     "name": "markConverted",
+     "parent": null,
+     "sigHash": "64d3834b8ac5a943",
+     "span": {
+      "end": 3888,
+      "start": 0
+     }
+    }
+   ],
+   "writes": [
+    {
+     "symbol": "src/patients/service.ts#markConverted",
+     "table": "patients",
+     "via": "db"
+    }
+   ]
+  },
+  "9851a521ae2cd444342de84bf05089095a654fe90c95c1e51c16f84a7145023b": {
+   "calls": [
+    {
+     "confidence": "syntactic",
+     "count": 1,
+     "from": "src/patients/service.ts#markConverted",
+     "to": "src/db.ts#db.update"
+    },
+    {
+     "confidence": "syntactic",
+     "count": 1,
+     "from": "src/patients/service.ts#markConverted",
+     "to": "src/events/bus.ts#bus.emit"
+    }
+   ],
+   "entries": [],
+   "hash": "9ba5bc87fa67be42",
+   "imports": [
+    {
+     "to": "src/db.ts",
+     "typeOnly": false
+    },
+    {
+     "to": "src/events/bus.ts",
+     "typeOnly": false
+    }
+   ],
+   "path": "src/patients/service.ts",
+   "reads": [],
+   "routes": [],
+   "symbols": [
+    {
+     "bodyHash": "3f21ab8eb9e36bc5",
+     "exported": true,
+     "file": "src/patients/service.ts",
+     "id": "src/patients/service.ts#markConverted",
+     "kind": "function",
+     "name": "markConverted",
+     "parent": null,
+     "sigHash": "64d3834b8ac5a943",
+     "span": {
+      "end": 242,
+      "start": 66
+     }
+    }
+   ],
+   "writes": [
+    {
+     "symbol": "src/patients/service.ts#markConverted",
+     "table": "patients",
+     "via": "db"
+    }
+   ]
+  },
+  "a31f54a2722bb4bfecbff02621acd7a12a4d29cbf6899307aca8b7cd49bcc3d7": {
+   "calls": [
+    {
+     "confidence": "syntactic",
+     "count": 1,
+     "from": "src/patients/service.ts#markConverted",
+     "to": "src/db.ts#db.save"
+    },
+    {
+     "confidence": "syntactic",
+     "count": 1,
+     "from": "src/patients/service.ts#markConverted",
+     "to": "src/events/bus.ts#bus.emit"
+    }
+   ],
+   "entries": [],
+   "hash": "47af7210d41ba4e3",
+   "imports": [
+    {
+     "to": "src/db.ts",
+     "typeOnly": false
+    },
+    {
+     "to": "src/events/bus.ts",
+     "typeOnly": false
+    }
+   ],
+   "path": "src/patients/service.ts",
+   "reads": [],
+   "routes": [],
+   "symbols": [
+    {
+     "bodyHash": "42a1c7a7b4517c11",
+     "exported": true,
+     "file": "src/patients/service.ts",
+     "id": "src/patients/service.ts#markConverted",
+     "kind": "function",
+     "name": "markConverted",
+     "parent": null,
+     "sigHash": "64d3834b8ac5a943",
+     "span": {
+      "end": 238,
+      "start": 66
+     }
+    }
+   ],
+   "writes": []
+  },
+  "ad6982c29aa177ed58d61d13d156daea53e863a6783365213fb37f39bf8c6d70": {
+   "calls": [
+    {
+     "confidence": "syntactic",
+     "count": 1,
+     "from": "src/patients/service.ts#markConverted",
+     "to": "src/db.ts#db.update"
+    },
+    {
+     "confidence": "syntactic",
+     "count": 1,
+     "from": "src/patients/service.ts#markConverted",
+     "to": "src/events/bus.ts#bus.emit"
+    }
+   ],
+   "entries": [],
+   "hash": "db89d8c3a82c9e72",
+   "imports": [
+    {
+     "to": "src/db.ts",
+     "typeOnly": false
+    },
+    {
+     "to": "src/events/bus.ts",
+     "typeOnly": false
+    }
+   ],
+   "path": "src/patients/service.ts",
+   "reads": [],
+   "routes": [],
+   "symbols": [
+    {
+     "bodyHash": "3f21ab8eb9e36bc5",
+     "exported": true,
+     "file": "src/patients/service.ts",
+     "id": "src/patients/service.ts#markConverted",
+     "kind": "function",
+     "name": "markConverted",
+     "parent": null,
+     "sigHash": "64d3834b8ac5a943",
+     "span": {
+      "end": 462,
+      "start": 286
+     }
+    }
+   ],
+   "writes": [
+    {
+     "symbol": "src/patients/service.ts#markConverted",
+     "table": "patients",
+     "via": "db"
+    }
+   ]
+  },
+  "bc227d9ee1dacc2d847fa7f701d8b3ae4cb2e639c11e42a5a93be2b0dc5a1ff9": {
+   "calls": [
+    {
+     "confidence": "syntactic",
+     "count": 1,
+     "from": "src/patients/service.ts#markConverted",
+     "to": "src/db.ts#db.update"
+    },
+    {
+     "confidence": "syntactic",
+     "count": 1,
+     "from": "src/patients/service.ts#markConverted",
+     "to": "src/events/bus.ts#bus.emit"
+    }
+   ],
+   "entries": [],
+   "hash": "9793c1728dbb07c0",
+   "imports": [
+    {
+     "to": "src/db.ts",
+     "typeOnly": false
+    },
+    {
+     "to": "src/events/bus.ts",
+     "typeOnly": false
+    }
+   ],
+   "path": "src/patients/service.ts",
+   "reads": [],
+   "routes": [],
+   "symbols": [
+    {
+     "bodyHash": "ed6cdd2dd32f3cf6",
+     "exported": true,
+     "file": "src/patients/service.ts",
+     "id": "src/patients/service.ts#markConverted",
+     "kind": "function",
+     "name": "markConverted",
+     "parent": null,
+     "sigHash": "64d3834b8ac5a943",
+     "span": {
+      "end": 281,
+      "start": 66
+     }
+    }
+   ],
+   "writes": [
+    {
+     "symbol": "src/patients/service.ts#markConverted",
+     "table": "patients",
+     "via": "db"
+    }
+   ]
+  },
+  "bf20b24cb6f75d9e0437765b705f810bd41ae1ba0315f1722813b559a39246b7": {
+   "calls": [
+    {
+     "confidence": "syntactic",
+     "count": 1,
+     "from": "src/patients/service.ts#markConverted",
+     "to": "src/db.ts#db.update"
+    },
+    {
+     "confidence": "syntactic",
+     "count": 1,
+     "from": "src/patients/service.ts#markConverted",
+     "to": "src/events/bus.ts#bus.emit"
+    }
+   ],
+   "entries": [],
+   "hash": "6173cabe69f6a853",
+   "imports": [
+    {
+     "to": "src/db.ts",
+     "typeOnly": false
+    },
+    {
+     "to": "src/events/bus.ts",
+     "typeOnly": false
+    }
+   ],
+   "path": "src/patients/service.ts",
+   "reads": [],
+   "routes": [],
+   "symbols": [
+    {
+     "bodyHash": "3f21ab8eb9e36bc5",
+     "exported": true,
+     "file": "src/patients/service.ts",
+     "id": "src/patients/service.ts#markConverted",
+     "kind": "function",
+     "name": "markConverted",
+     "parent": null,
+     "sigHash": "64d3834b8ac5a943",
+     "span": {
+      "end": 266,
+      "start": 90
+     }
+    }
+   ],
+   "writes": [
+    {
+     "symbol": "src/patients/service.ts#markConverted",
+     "table": "patients",
+     "via": "db"
+    }
+   ]
+  }
+ },
+ "src/server/routes.ts": {
+  "9c8a14f4e744677807c1b618330ef04d2854f05d5ddc14e1e1a133a3fc66f603": {
+   "calls": [
+    {
+     "confidence": "syntactic",
+     "count": 1,
+     "from": "src/server/routes.ts#app",
+     "to": "vendor:express"
+    },
+    {
+     "confidence": "syntactic",
+     "count": 1,
+     "from": "src/server/routes.ts",
+     "to": "src/server/routes.ts#app.post"
+    },
+    {
+     "confidence": "syntactic",
+     "count": 1,
+     "from": "src/server/routes.ts#convertPatient",
+     "to": "src/patients/service.ts#markConverted"
+    }
+   ],
+   "entries": [
+    {
+     "file": "src/server/routes.ts",
+     "id": "entry:route:POST /api/patients/{}/convert",
+     "kind": "route",
+     "label": "POST /api/patients/{}/convert",
+     "symbol": "src/server/routes.ts#convertPatient"
+    }
+   ],
+   "hash": "507a79f7d07929ef",
+   "imports": [
+    {
+     "to": "vendor:express",
+     "typeOnly": false
+    },
+    {
+     "to": "src/patients/service.ts",
+     "typeOnly": false
+    }
+   ],
+   "path": "src/server/routes.ts",
+   "reads": [],
+   "routes": [
+    {
+     "file": "src/server/routes.ts",
+     "handler": "src/server/routes.ts#convertPatient",
+     "id": "route:POST /api/patients/{}/convert",
+     "method": "POST",
+     "path": "/api/patients/{}/convert"
+    }
+   ],
+   "symbols": [
+    {
+     "bodyHash": "21b1c704c9315621",
+     "exported": true,
+     "file": "src/server/routes.ts",
+     "id": "src/server/routes.ts#app",
+     "kind": "const",
+     "name": "app",
+     "parent": null,
+     "sigHash": "534a8653b5a472d0",
+     "span": {
+      "end": 114,
+      "start": 85
+     }
+    },
+    {
+     "bodyHash": "d40f37f7d5df04f1",
+     "exported": true,
+     "file": "src/server/routes.ts",
+     "id": "src/server/routes.ts#convertPatient",
+     "kind": "function",
+     "name": "convertPatient",
+     "parent": null,
+     "sigHash": "fe659dfbdb6669db",
+     "span": {
+      "end": 345,
+      "start": 172
+     }
+    }
+   ],
+   "writes": []
+  }
+ },
+ "src/ui/App.tsx": {
+  "5602060b1c77fca5a9b1764b80bbed2e7cf1a7002691feb38bc4e731ee0a1e2b": {
+   "calls": [],
+   "entries": [],
+   "hash": "4cf1740cfffd7fe8",
+   "imports": [
+    {
+     "to": "src/ui/PatientPage.tsx",
+     "typeOnly": false
+    }
+   ],
+   "path": "src/ui/App.tsx",
+   "reads": [],
+   "routes": [],
+   "symbols": [
+    {
+     "bodyHash": "cc20c687b5041491",
+     "exported": true,
+     "file": "src/ui/App.tsx",
+     "id": "src/ui/App.tsx#App",
+     "kind": "component",
+     "name": "App",
+     "parent": null,
+     "sigHash": "bdedaf177024313f",
+     "span": {
+      "end": 110,
+      "start": 45
+     }
+    }
+   ],
+   "writes": []
+  }
+ },
+ "src/ui/PatientHeader.tsx": {
+  "0686f92ff710b318040724a91d7d0ef037f51ca18067e606ca1ee6d506b7c6cb": {
+   "calls": [],
+   "entries": [],
+   "hash": "51b040d1c7d0bafa",
+   "imports": [],
+   "path": "src/ui/PatientHeader.tsx",
+   "reads": [],
+   "routes": [],
+   "symbols": [
+    {
+     "bodyHash": "a8c647b450dfb4b9",
+     "exported": true,
+     "file": "src/ui/PatientHeader.tsx",
+     "id": "src/ui/PatientHeader.tsx#PatientHeader",
+     "kind": "component",
+     "name": "PatientHeader",
+     "parent": null,
+     "sigHash": "a907730c2a9d8301",
+     "span": {
+      "end": 292,
+      "start": 65
+     }
+    },
+    {
+     "bodyHash": "6f6fd1e01ce59afb",
+     "exported": false,
+     "file": "src/ui/PatientHeader.tsx",
+     "id": "src/ui/PatientHeader.tsx#PatientHeader.onConvert",
+     "kind": "function",
+     "name": "PatientHeader.onConvert",
+     "parent": "src/ui/PatientHeader.tsx#PatientHeader",
+     "sigHash": "0eefca929e711903",
+     "span": {
+      "end": 224,
+      "start": 143
+     }
+    }
+   ],
+   "writes": []
+  },
+  "9bede88ab3bc4c7f1f1dc5fba403030fbfebf9719bcf04695f140e4500a07e58": {
+   "calls": [],
+   "entries": [],
+   "hash": "aec742ac659386ce",
+   "imports": [],
+   "path": "src/ui/PatientHeader.tsx",
+   "reads": [],
+   "routes": [],
+   "symbols": [
+    {
+     "bodyHash": "a8c647b450dfb4b9",
+     "exported": true,
+     "file": "src/ui/PatientHeader.tsx",
+     "id": "src/ui/PatientHeader.tsx#PatientHeader",
+     "kind": "component",
+     "name": "PatientHeader",
+     "parent": null,
+     "sigHash": "a907730c2a9d8301",
+     "span": {
+      "end": 292,
+      "start": 65
+     }
+    },
+    {
+     "bodyHash": "6f6fd1e01ce59afb",
+     "exported": false,
+     "file": "src/ui/PatientHeader.tsx",
+     "id": "src/ui/PatientHeader.tsx#PatientHeader.onConvert",
+     "kind": "function",
+     "name": "PatientHeader.onConvert",
+     "parent": "src/ui/PatientHeader.tsx#PatientHeader",
+     "sigHash": "0eefca929e711903",
+     "span": {
+      "end": 224,
+      "start": 143
+     }
+    },
+    {
+     "bodyHash": "dc412cfd46098802",
+     "exported": true,
+     "file": "src/ui/PatientHeader.tsx",
+     "id": "src/ui/PatientHeader.tsx#icon",
+     "kind": "const",
+     "name": "icon",
+     "parent": null,
+     "sigHash": "534a8653b5a472d0",
+     "span": {
+      "end": 330,
+      "start": 294
+     }
+    }
+   ],
+   "writes": []
+  },
+  "eea8b1702af13b09ab52df5dc607d840dd9565cbcf67da55760de0f769b48a5a": {
+   "calls": [],
+   "entries": [],
+   "hash": "142661545a3c3af0",
+   "imports": [],
+   "path": "src/ui/PatientHeader.tsx",
+   "reads": [],
+   "routes": [],
+   "symbols": [
+    {
+     "bodyHash": "a8c647b450dfb4b9",
+     "exported": true,
+     "file": "src/ui/PatientHeader.tsx",
+     "id": "src/ui/PatientHeader.tsx#PatientHeader",
+     "kind": "component",
+     "name": "PatientHeader",
+     "parent": null,
+     "sigHash": "a907730c2a9d8301",
+     "span": {
+      "end": 292,
+      "start": 65
+     }
+    },
+    {
+     "bodyHash": "6f6fd1e01ce59afb",
+     "exported": false,
+     "file": "src/ui/PatientHeader.tsx",
+     "id": "src/ui/PatientHeader.tsx#PatientHeader.onConvert",
+     "kind": "function",
+     "name": "PatientHeader.onConvert",
+     "parent": "src/ui/PatientHeader.tsx#PatientHeader",
+     "sigHash": "0eefca929e711903",
+     "span": {
+      "end": 224,
+      "start": 143
+     }
+    }
+   ],
+   "writes": []
+  }
+ },
+ "src/ui/PatientNotes.tsx": {
+  "800898c4684d4bf05a4c6a32a1c2c5a80fbb5902b421b1b08082fa9d1bb10842": {
+   "calls": [],
+   "entries": [],
+   "hash": "2a6e2af1923a023b",
+   "imports": [],
+   "path": "src/ui/PatientNotes.tsx",
+   "reads": [],
+   "routes": [],
+   "symbols": [
+    {
+     "bodyHash": "2bee8d11cd4a07ab",
+     "exported": true,
+     "file": "src/ui/PatientNotes.tsx",
+     "id": "src/ui/PatientNotes.tsx#PatientNotes",
+     "kind": "component",
+     "name": "PatientNotes",
+     "parent": null,
+     "sigHash": "bdedaf177024313f",
+     "span": {
+      "end": 211,
+      "start": 34
+     }
+    }
+   ],
+   "writes": []
+  }
+ },
+ "src/ui/PatientPage.tsx": {
+  "11eff328b1be12349e51be742bc7be90e63dc09dbe296c382422652d6ce99418": {
+   "calls": [],
+   "entries": [],
+   "hash": "b7e32fed9abbb28f",
+   "imports": [
+    {
+     "to": "src/ui/PatientHeader.tsx",
+     "typeOnly": false
+    },
+    {
+     "to": "src/ui/PatientNotes.tsx",
+     "typeOnly": false
+    },
+    {
+     "to": "src/ui/PatientSidebar.tsx",
+     "typeOnly": false
+    }
+   ],
+   "path": "src/ui/PatientPage.tsx",
+   "reads": [],
+   "routes": [],
+   "symbols": [
+    {
+     "bodyHash": "baba76b11be50c1e",
+     "exported": true,
+     "file": "src/ui/PatientPage.tsx",
+     "id": "src/ui/PatientPage.tsx#PatientPage",
+     "kind": "component",
+     "name": "PatientPage",
+     "parent": null,
+     "sigHash": "a907730c2a9d8301",
+     "span": {
+      "end": 538,
+      "start": 227
+     }
+    }
+   ],
+   "writes": []
+  }
+ },
+ "src/ui/PatientSidebar.tsx": {
+  "904b2281b7fb6abef24fa43a1014efa9c2989d905213052b23ca7301a4012bdb": {
+   "calls": [],
+   "entries": [],
+   "hash": "1cc9c9c33cf4e603",
+   "imports": [],
+   "path": "src/ui/PatientSidebar.tsx",
+   "reads": [],
+   "routes": [],
+   "symbols": [
+    {
+     "bodyHash": "4079548d731a25d3",
+     "exported": true,
+     "file": "src/ui/PatientSidebar.tsx",
+     "id": "src/ui/PatientSidebar.tsx#PatientSidebar",
+     "kind": "component",
+     "name": "PatientSidebar",
+     "parent": null,
+     "sigHash": "bdedaf177024313f",
+     "span": {
+      "end": 238,
+      "start": 50
+     }
+    }
+   ],
+   "writes": []
+  }
+ }
+}
