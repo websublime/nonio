@@ -25,6 +25,11 @@ Carried over from illuminate (read at commit 7a88df6, 2026-11-26):
 - crates/nonio-scan/tests/fixtures/alias-repo: copied from
   packages/facts/test/fixtures.
 - tools/compare-facts/dump.ts: calls illuminate's createFactsIndex.
+- crates/nonio-server/src/{bridge,host,request,store}.rs: ported from
+  packages/server/src/{bridge,host,store}.ts and requestText/partsOf in
+  packages/server/src/channel.ts (host messages and request wording).
+- crates/nonio-server/tests/{bridge,request}.rs: ported from
+  packages/server/test/channel.test.ts.
 
 The Vue template lowering in crates/nonio-scan/src/vue.rs is ported from
 vue_oxlint_jsx 0.15.0 (vue-oxlint-toolkit,
