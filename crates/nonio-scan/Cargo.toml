@@ -1,0 +1,28 @@
+[package]
+name = "nonio-scan"
+description = "Extraction backends of nonio: facts from source code, behind the Extractor trait of nonio-facts."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+nonio-facts = { path = "../nonio-facts" }
+serde.workspace = true
+serde_json.workspace = true
+regex.workspace = true
+oxc_allocator = "=0.153.0"
+oxc_ast = "=0.153.0"
+oxc_ast_visit = "=0.153.0"
+oxc_parser = "=0.153.0"
+oxc_semantic = "=0.153.0"
+oxc_span = "=0.153.0"
+oxc_syntax = "=0.153.0"
+fancy-regex = "0.20"
+indexmap.workspace = true
+oxc_resolver = "=11.24.2"
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+tempfile.workspace = true
