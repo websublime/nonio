@@ -16,7 +16,8 @@ permissions:
 
 jobs:
   prepare:
-    if: github.repository == 'websublime/nonio' && !startsWith(github.event.head_commit.message, 'Release ')
+    # After a release PR merges, main has no change files left, so this does nothing.
+    if: github.repository == 'websublime/nonio'
     runs-on: ubuntu-latest
     env:
       GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
