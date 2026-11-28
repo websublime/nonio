@@ -17,3 +17,7 @@ publish-jobs = ["homebrew", "./publish-npm"]
 # NOTICE carries illuminate's copyright for the parts ported from it (D02).
 include = ["NOTICE"]
 github-build-setup = "../build-setup.yml"
+
+# publish-npm.yml reads the release (contents: read); a called workflow gets no more than its caller job grants.
+[dist.github-custom-job-permissions]
+"publish-npm" = { contents = "read" }
