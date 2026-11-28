@@ -1,0 +1,9 @@
+# Steps dist runs before each build: the binary carries the viewer (rust-embed reads viewer/dist at compile time).
+# dist copies only name, uses, with, run and shell, so the step changes folder itself.
+- name: Install Node
+  uses: actions/setup-node@v4
+  with:
+    node-version: 22
+- name: Build the viewer
+  shell: bash
+  run: cd viewer && npm ci && npm run build
