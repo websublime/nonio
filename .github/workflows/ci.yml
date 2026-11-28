@@ -90,7 +90,8 @@ jobs:
       - uses: knope-dev/action@v2.1.2
         with:
           version: 0.24.0
-      - run: knope --validate
+      # A PR is checked out detached; knope validates its workflows from the tip of a branch.
+      - run: git switch -c knope-validate && knope --validate
 
   npm:
     runs-on: ubuntu-latest
