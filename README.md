@@ -59,6 +59,8 @@ packages are built from those archives by [`tools/npm-packages`](tools/npm-packa
 the binary inside, so `npx` needs no download from GitHub and no install script, from public npm or an internal
 registry.
 
+How a release is made, and the secrets it needs: [RELEASING.md](RELEASING.md).
+
 The versions in `plugin/` follow the workspace version; `cargo test -p nonio-cli --test plugin` fails when they drift.
 
 ## Tests

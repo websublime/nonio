@@ -1,0 +1,68 @@
+# Releases (knope): every change worth a release note gets a change file (`knope document-change`, or a conventional
+# commit). On main, the "prepare-release" workflow keeps a release PR up to date: it bumps the version everywhere it is
+# written and moves the change files into CHANGELOG.md. Merging that PR runs "release", which tags `v<version>`; the
+# tag starts dist's release workflow (GitHub Release, installers, Homebrew, npm). See RELEASING.md.
+
+[package]
+changelog = "CHANGELOG.md"
+versioned_files = [
+  "Cargo.toml",
+  { path = "Cargo.lock", dependency = "nonio-cli" },
+  { path = "Cargo.lock", dependency = "nonio-core" },
+  { path = "Cargo.lock", dependency = "nonio-facts" },
+  { path = "Cargo.lock", dependency = "nonio-scan" },
+  { path = "Cargo.lock", dependency = "nonio-server" },
+  { path = "plugin/plugin.json", regex = '"version": "(?<version>\d+\.\d+\.\d+)"' },
+  { path = "plugin/.cursor-plugin/plugin.json", regex = '"version": "(?<version>\d+\.\d+\.\d+)"' },
+  { path = "plugin/mcp.json", regex = '@websublime/nonio@(?<version>\d+\.\d+\.\d+)' },
+  { path = "plugin/skills/nonio/SKILL.md", regex = '@websublime/nonio@(?<version>\d+\.\d+\.\d+)' },
+]
+
+[[workflows]]
+name = "document-change"
+
+[[workflows.steps]]
+type = "CreateChangeFile"
+
+[[workflows]]
+name = "prepare-release"
+
+[[workflows.steps]]
+type = "Command"
+command = "git switch -c release"
+
+[[workflows.steps]]
+type = "PrepareRelease"
+
+[[workflows.steps]]
+type = "Command"
+command = "git commit -m \"Release $version\""
+variables = { "$version" = "Version" }
+
+[[workflows.steps]]
+type = "Command"
+command = "git push --force --set-upstream origin release"
+
+[[workflows.steps]]
+type = "CreatePullRequest"
+base = "main"
+
+[workflows.steps.title]
+template = "Release $version"
+variables = { "$version" = "Version" }
+
+[workflows.steps.body]
+template = "Merging this tags v$version, and the tag starts the release (GitHub Release, installers, Homebrew, npm).\n\n$changelog"
+variables = { "$version" = "Version", "$changelog" = "ChangelogEntry" }
+
+[[workflows]]
+name = "release"
+
+[[workflows.steps]]
+type = "Command"
+command = "git tag v$version && git push origin v$version"
+variables = { "$version" = "Version" }
+
+[github]
+owner = "websublime"
+repo = "nonio"

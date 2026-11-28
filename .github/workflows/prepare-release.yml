@@ -1,0 +1,43 @@
+# Keeps the release PR (branch `release`) up to date with the change files on main (knope.toml, RELEASING.md).
+# It pushes with RELEASE_TOKEN, a token of Miguel's with contents and pull-request write access: a PR opened with the
+# default GITHUB_TOKEN would get no CI.
+name: prepare release
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: prepare-release
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    if: github.repository == 'websublime/nonio' && !startsWith(github.event.head_commit.message, 'Release ')
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN }}
+      - uses: knope-dev/action@v2.1.2
+        with:
+          version: 0.24.0
+      - name: Prepare the release PR
+        run: |
+          if [ -z "$GITHUB_TOKEN" ]; then
+            echo "::warning::No RELEASE_TOKEN secret: the release PR was not updated."
+            exit 0
+          fi
+          if ! ls .changeset/*.md > /dev/null 2>&1; then
+            echo "No change files on main, so nothing to release."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          knope prepare-release --verbose
