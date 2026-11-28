@@ -86,3 +86,23 @@ jobs:
           curl -fsSL "$SPEC/mcp.schema.json" -o "$RUNNER_TEMP/mcp.schema.json"
       - run: npx -y ajv-cli@5.0.0 validate --spec=draft2020 --strict=false -s "$RUNNER_TEMP/plugin.schema.json" -d plugin/plugin.json
       - run: npx -y ajv-cli@5.0.0 validate --spec=draft2020 --strict=false -s "$RUNNER_TEMP/mcp.schema.json" -d plugin/mcp.json
+
+  npm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: cargo build --release -p nonio-cli --locked
+      # The same layout as dist's archive for this target, so build.mjs reads it as it reads a release's.
+      - run: |
+          a=nonio-cli-x86_64-unknown-linux-gnu
+          mkdir -p "$RUNNER_TEMP/archives/$a"
+          cp target/release/nonio LICENSE NOTICE README.md "$RUNNER_TEMP/archives/$a/"
+          tar -C "$RUNNER_TEMP/archives" -cJf "$RUNNER_TEMP/archives/$a.tar.xz" "$a"
+      - run: node tools/npm-packages/build.mjs --archives "$RUNNER_TEMP/archives" --out "$RUNNER_TEMP/npm"
+      # From a registry that holds only these packages, with install scripts off: how the plugin starts nonio (D24).
+      - run: tools/npm-packages/smoke.sh "$RUNNER_TEMP/npm"

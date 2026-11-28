@@ -53,6 +53,12 @@ from: the public npm registry, or an internal one when the `@websublime` scope p
 `.cursor-plugin/marketplace.json` lists the plugin, so this repo (or a mirror of it) can be imported as a Cursor team
 marketplace. To try it locally in Cursor, copy `plugin/` to `~/.cursor/plugins/local/nonio` and reload the window.
 
+Releases are built by `dist` from a `v*` tag (`dist-workspace.toml`, `.github/workflows/release.yml`): a GitHub
+Release with archives for macOS, Linux and Windows, shell and PowerShell installers, and a Homebrew formula. The npm
+packages are built from those archives by [`tools/npm-packages`](tools/npm-packages/README.md): one per platform with
+the binary inside, so `npx` needs no download from GitHub and no install script, from public npm or an internal
+registry.
+
 The versions in `plugin/` follow the workspace version; `cargo test -p nonio-cli --test plugin` fails when they drift.
 
 ## Tests

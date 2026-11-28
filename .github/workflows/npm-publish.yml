@@ -1,0 +1,46 @@
+# Publishes the npm packages of an existing GitHub release (D24) to one registry. Run by hand only: nothing publishes
+# on its own. An internal registry that GitHub's runners can't reach is published from inside its network instead,
+# with tools/npm-packages/publish.sh.
+name: npm publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag, e.g. v0.0.1"
+        required: true
+      registry:
+        description: "Registry URL"
+        required: true
+        default: "https://registry.npmjs.org/"
+      dry_run:
+        description: "Only show what would be published"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Sign in to the registry
+        env:
+          REGISTRY: ${{ inputs.registry }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          host=${REGISTRY#https://}; host=${host#http://}
+          printf '//%s:_authToken=${NPM_TOKEN}\n' "${host%/}/" >> ~/.npmrc
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          TAG: ${{ inputs.tag }}
+          REGISTRY: ${{ inputs.registry }}
+          DRY: ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: tools/npm-packages/publish.sh "$TAG" "$REGISTRY" $DRY
