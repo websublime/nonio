@@ -3,7 +3,7 @@ members = ["cargo:."]
 
 # Config for 'dist'
 [dist]
-cargo-dist-version = "0.34.0"
+cargo-dist-version = "0.33.1"
 ci = "github"
 # npm comes from tools/npm-packages instead: one package per platform with the binary inside (D24), for every registry.
 installers = ["shell", "powershell", "homebrew"]
@@ -13,7 +13,11 @@ install-updater = false
 pr-run-mode = "plan"
 tap = "websublime/homebrew-tap"
 formula = "nonio"
-publish-jobs = ["homebrew"]
+publish-jobs = ["homebrew", "./publish-npm"]
 # NOTICE carries illuminate's copyright for the parts ported from it (D02).
 include = ["NOTICE"]
 github-build-setup = "../build-setup.yml"
+
+# publish-npm.yml reads the release (contents: read); a called workflow gets no more than its caller job grants.
+[dist.github-custom-job-permissions]
+"publish-npm" = { contents = "read" }

@@ -1,0 +1,28 @@
+# Merging the release PR tags v<version> (knope's "release" workflow). The tag is pushed with RELEASE_TOKEN so that it
+# starts release.yml (dist): a tag pushed with the default GITHUB_TOKEN starts no workflow.
+name: release tag
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  tag:
+    if: github.repository == 'websublime/nonio' && github.head_ref == 'release' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN }}
+      - uses: knope-dev/action@v2.1.2
+        with:
+          version: 0.24.0
+      - run: knope release --verbose
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}

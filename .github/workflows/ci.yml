@@ -86,6 +86,12 @@ jobs:
           curl -fsSL "$SPEC/mcp.schema.json" -o "$RUNNER_TEMP/mcp.schema.json"
       - run: npx -y ajv-cli@5.0.0 validate --spec=draft2020 --strict=false -s "$RUNNER_TEMP/plugin.schema.json" -d plugin/plugin.json
       - run: npx -y ajv-cli@5.0.0 validate --spec=draft2020 --strict=false -s "$RUNNER_TEMP/mcp.schema.json" -d plugin/mcp.json
+      # The release PR bumps the versions above through knope.toml.
+      - uses: knope-dev/action@v2.1.2
+        with:
+          version: 0.24.0
+      # A PR is checked out detached; knope validates its workflows from the tip of a branch.
+      - run: git switch -c knope-validate && knope --validate
 
   npm:
     runs-on: ubuntu-latest
